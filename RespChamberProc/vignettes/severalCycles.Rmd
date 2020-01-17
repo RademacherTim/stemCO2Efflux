@@ -1,0 +1,115 @@
+<!--
+%\VignetteEngine{knitr}
+%\VignetteIndexEntry{Processing several measurement cycles}
+-->
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(out.extra='style="display:block; margin: auto"'
+    #, fig.align="center"
+    , fig.width=4.3, fig.height=3.2, dev.args=list(pointsize=10)
+    , message=FALSE
+    , results='hold'
+    )
+knit_hooks$set(spar = function(before, options, envir) {
+    if (before){
+        par( las=1 )                   #also y axis labels horizontal
+        par(mar=c(2.0,3.3,0,0)+0.3 )  #margins
+        par(tck=0.02 )                          #axe-tick length inside plots             
+        par(mgp=c(1.1,0.2,0) )  #positioning of axis title, axis labels, axis
+     }
+})
+# genVigs("severalCycles")
+```
+
+Processing several measurement cycles
+==============================================
+
+```{r eval=FALSE, echo=FALSE, results='hide'}
+isDevelopMode <- TRUE
+library(twDev)
+setwd('..');loadPkg()
+```
+```{r results='hide', warning=FALSE}
+if(!exists("isDevelopMode")) library(RespChamberProc)
+set.seed(0815)      # for reproducible results
+```
+
+Determine subsets of single measurment cycles
+---------------------------------------------------
+
+First, the data is loaded. Here, directly from zipped logger-output.
+```{r, spar=TRUE, fig.width=12}
+fName <- system.file("genData/SMANIE_Chamber1_26032015.zip", package = "RespChamberProc")
+if( nzchar(fName) ){ ds <- ds0 <- readDat(unz(fName, file=unzip(fName, list=TRUE)[1,"Name"] ),tz="UTC") }
+head(ds)
+plot( CO2_LI840 ~ TIMESTAMP, ds, ylab="CO2 (ppm)", xlab="Time")
+```
+
+The dataset contains several measurment cycles of light and dark chambers with increasing or decreasing concentations respectively.
+
+First, we correct the pressure to standard units and correct the CO2
+concentrations for water vapour.
+```{r}
+ds$Pa <- ds0$AirPres * 100  # convert hPa to Pa
+ds$CO2_dry <- corrConcDilution(ds, colConc = "CO2_LI840", colVapour = "H2O_LI840")
+ds$H2O_dry <- corrConcDilution(ds, colConc = "H2O_LI840", colVapour = "H2O_LI840")
+ds$VPD <- calcVPD( ds$SurTemp, ds$Pa, ds$H2O_LI840)
+```
+
+In order to process each measurement cycle independently, we first determine parts of the time series that are contiguous, i.e. without gaps and without change of an index variable, here variable `collar`.
+
+
+```{r}
+dsChunk <- subsetContiguous(ds, colTime="TIMESTAMP", colIndex="Collar") 
+head(dsChunk)
+```
+
+The new modified contains a new variable, `iChunk`, holding a factor that
+changes with different measurment cycles.
+This factor can be used to select subset of single measurement cycles. 
+```{r , spar=TRUE}
+dss <- subset(dsChunk, iChunk==15)
+plot( CO2_dry ~ TIMESTAMP, dss, ylab="CO2 (ppm)", xlab="time (Minute:Second)")
+```
+
+Computing the flux
+------------------
+
+Function `calcClosedChamberFluxForChunks` helps you with subsetting the data and applying function `calcClosedChamberFlux` to each subset.
+
+```{r}
+# for demonstration use only the first 20 cycles
+dsChunk20 <- subset(dsChunk, as.integer(iChunk) <= 20) 
+chamberVol=0.6*0.6*0.6		# chamber was a cube of 0.6m length
+surfaceArea=0.6*0.6
+
+resChunks1 <- calcClosedChamberFluxForChunks(dsChunk20, colTemp="T_LI840"
+    ,fRegress = c(lin = regressFluxLinear, tanh = regressFluxTanh)	# linear and saturating shape
+    ,debugInfo=list(omitEstimateLeverage=TRUE)	# faster
+    ,volume=chamberVol
+    ,area=surfaceArea
+)
+head(resChunks1)
+```
+
+The results are similar as for `calcClosedChamberFlux`, unless there are several rows identified by additional key column iChunk.
+
+## Plotting faceted data and fits
+```{r eval=FALSE, echo=FALSE}
+library(twDev)
+reloadPkg("RespChamberProc")
+```
+Plot the results to dectect problems. 
+```{r, spar=TRUE, fig.width=11, fig.height=6, warning=FALSE, message=FALSE}
+library(ggplot2)
+plots <- plotCampaignConcSeries( dsChunk20, resChunks1, plotsPerPage=64L)  
+print(plots$plot[[1]]) # print the first page
+```
+
+If argument `fileName` is provided to `plotCampaignConcSeries`. All plots are
+written to a pdf. If there are more cycles, i.e. plots, than argument `plotsPerPage`(default 64) there will be several pages in the pdf.
+
+
+
+

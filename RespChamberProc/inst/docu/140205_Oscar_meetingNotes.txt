@@ -1,0 +1,60 @@
+Result
+
+one file per year per plot
+
+Timestamp (initial time at the beginning of the light measurement -> TODO clarify unit)
+TimeStampHH (time step rounded to half hour)
+Treatment	
+#trNutrient	C (control) N (nitrogen) P (phosphorous) B (both: nitrogen + phosphotrous))
+trNutrient	Ct (control) No (nitrogen only) Po (Phosphorous only) NP (both: nitrogen + phosphotrous)
+trBlock [1-4]
+# rep	Replicate [1-2]
+CO2light	CO2 flux	[mumol CO2 / m2 / s ]
+CO2dark
+Ph	(only defin
+sdPh	combined of flux calculation + replicates (think if variances add independent)
+ET	Evapotranspiraiton [mmol WaterVarpo / m2 / s]
+sdET
+Ta	Air temperature inside chamber [°C]  (make sure to use only the initail T for calculations of volume)
+Te	Canopy temperature 
+Pa	atmospheric pressure inside chamber [kPa]
+PAR	photosynthetically active radiation [mumol /m2 /s]  (photons)
+SWC	soil water content (water volume / per soil volume) [m³/m³]
+Ts	soil temperature [°C]
+VPD	[kPa] f(Te, 
+CO2	initial athmospheric CO2 concentration (ppm)
+
+soil conditions -> different times -> different dataset
+
+radiometric 
+
+
+
+
+Template
+
+Timestamp: Solar time? / Local time zone / UTC
+
+
+
+trIdentifier
+trNutrient_block_replicate_
+
+
+Processing
+CO2 flux correction for 
+-- Density = f(Temperature, volume, pressure), 
+-- Dilution f(water vapour), 
+-- leakage
+Flux calculation (bootstrapping) of CO2 flux
+Photosynthesis = light flux - dark flux
+
+
+
+
+inputs
+H2O_avg		water vapour molar fraction [mmol/mol] (ppt) %% (permill)
+
+provide functions that average across replicates of different times
+
+dat (from data-logger)

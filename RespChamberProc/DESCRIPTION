@@ -1,0 +1,13 @@
+Package: RespChamberProc
+Title: Processing Data from Respiration Chambers  
+Version: 0.6.2
+Date: 2016-12-08
+Author: Thomas Wutzler, Oscar Perez Priego
+Maintainer: Thomas Wutzler <twutz@bgc-jena.mpg.de>
+Description: Processing data from respiration chambers.  
+Depends: R (>= 3.0.0), methods
+Imports: changepoint, nlme, segmented, tibble,  dplyr, purrr, lazyeval
+Suggests: testthat, knitr,ggplot2
+VignetteBuilder: knitr
+License: GPL (>= 3)
+LazyData: true

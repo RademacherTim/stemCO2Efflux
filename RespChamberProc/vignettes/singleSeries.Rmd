@@ -1,0 +1,134 @@
+<!--
+%\VignetteEngine{knitr}
+%\VignetteIndexEntry{CO2 fluxes from Chamber CO2 concentrations}
+-->
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(out.extra='style="display:block; margin: auto"'
+    #, fig.align="center"
+    , fig.width=4.3, fig.height=3.2, dev.args=list(pointsize=10)
+    , message=FALSE
+    , results='hold'
+    )
+knit_hooks$set(spar = function(before, options, envir) {
+    if (before){
+        par( las=1 )                   #also y axis labels horizontal
+        par(mar=c(2.0,3.3,0,0)+0.3 )  #margins
+        par(tck=0.02 )                          #axe-tick length inside plots             
+        par(mgp=c(1.1,0.2,0) )  #positioning of axis title, axis labels, axis
+     }
+})
+# genVigs("singleSeries")
+```
+
+CO2 fluxes from Chamber CO2 concentrations
+======================================================
+
+```{r eval=FALSE, echo=FALSE, results='hide'}
+isDevelopMode <- TRUE
+library(twDev)
+setwd('..');loadPkg()
+```
+
+```{r results='hide', warning=FALSE}
+if(!exists("isDevelopMode")) library(RespChamberProc)
+set.seed(0815)      # for reproducible results
+```
+
+Preparing the chamber data
+------------------------------
+
+First, the data is loaded. This is a typical data.frame as obtained from a
+logger file of a light chamber with photosynthetic plants in it, for a single
+chamber measurement cycle. For timestamps spaced about every second, the
+sensor readings from CO2 concentration in ppm, vater vapour in ppm, chamber
+temperaturein degree Celsius and air pressure, here in kPa are recorded.
+
+```{r, spar=TRUE}
+data(chamberLoggerEx1s, package="RespChamberProc")
+ds <- chamberLoggerEx1s
+head(ds)
+plot( CO2_Avg ~ TIMESTAMP, ds, ylab="CO2 (ppm)", xlab="time (Minute:Second)")
+```
+
+RespChamberProc demands the pressure in units Pascal, so we need to convert from
+kPa. 
+```{r}
+ds$Pa <- chamberLoggerEx1s$Pa * 1000  # convert kPa to Pa
+```
+
+RespChamberProc works with concentrations of CO2 per dry air. There was
+vater vapour in the chamber and CO2 concentrations are measured per wet air. We
+need to compute the concentrations per dry air.
+```{r}
+conc <- ds$CO2_dry <- corrConcDilution(ds)
+```
+
+Computing the flux
+---------------------
+The CO2-flux is the change of concentration per time, i.e. the slope of the
+concentration change. Usually, the changing concentration within the chamber
+over time decreases the slope voer time. Hence, RespChamberProc fits several
+functional forms to the CO2~time relationship and reports the intial slope of
+the best-fitting form.
+
+```{r}
+resFit <- calcClosedChamberFlux(ds
+		, colConc = "CO2_dry", colTime = "TIMESTAMP"	# colum names conc ~ timeInSeconds
+		, colTemp = "TA_Avg", colPressure = "Pa"		# Temperature in K, Pressure in Pa
+		, volume = 1, area = 1						    # chamber dimensions m3 and m2
+)
+```
+
+`calcClosedChamberFlux` expects the time in seconds. Providing a vector
+of POSIXct is ok.
+Moreover, the dimensions of the chamber must be given, the inside chamber air
+volume in cubic meter, and the area (in square meter) of the exchange area
+between the chamber and the studied object. This area is usually the area of the
+open bottom side ofthe chamber. 
+
+If the chamber encloses an objects, set the area to 1 and interpret the flux in
+micromol/second instead of micromol/square meter/second.
+
+In order to convert (change of) concentrations to amount of substance, the pressure (in Pa) and temperature (in Kelvin) inside
+the chamber are required in addition to volume in order to apply the idal gas law.  
+The flux is proportional to pressure. Hence, if pressure is not recorded with
+the logger file, one may compute with a average pressure of Pa=100*1000, and
+correct fluxes post-hoc when an esitmate of air pressure becomes available
+from meteorological data.
+
+
+Inspecting the results
+-------------------------
+
+Its a one-row tibble, i.e. a kind of tabular data like a data.frame, with fitting statistics and fitted model objects. While all the first columns are numeric, column `times` holds a vector of times after lag-phase for which concentration predictions have benn made by the model object given in column `model` (see explanations on the graph below).
+
+```{r}
+resFit
+```
+
+The most important information are the estimate of the flux, and its
+uncertainty, both in unit mumol/m2/s:
+```{r}
+resFit[,c("flux","sdFlux")]
+```
+
+Or in gC/m2/day:
+```{r}
+fluxInMuMol <- unlist(resFit[,c("flux","sdFlux")])
+convert_mumolPers_to_gPerday(fluxInMuMol)
+```
+
+
+The results can be visualized in a plot:
+```{r , spar=TRUE}
+plotResp(ds, resFit, label="Example Series")		
+```
+
+The fitted form (solid line) approximates the change of measured concentration
+(points) over time. Usually there is a lag-time (dotted vertical line) between
+concentration change, and when the time when the signal reaches the sensor. The
+flux after the intial lag-time is reported at the top left together with its
+uncertainty in mumol/m2/s.
+The label can be provided to distinguish different measurement cycles.
