@@ -50,7 +50,7 @@ dirPath <- '/media/tim/dataDisk/PlantGrowth/data/respiration/'
 
 # loop over dates
 #----------------------------------------------------------------------------------------
-for (dateTime in measurementDates [58]) {
+for (dateTime in measurementDates) {
   
   # now processing 
   #--------------------------------------------------------------------------------------
@@ -301,6 +301,7 @@ for (dateTime in measurementDates [58]) {
 }
 
 # Read all processed data
+#----------------------------------------------------------------------------------------
 
 # Start with processed data from 2017 experiment, which was not using FluxPuppy
 #----------------------------------------------------------------------------------------
