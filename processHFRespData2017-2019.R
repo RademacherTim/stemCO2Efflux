@@ -37,7 +37,7 @@ source ('selectData.R')
 # set study for which to downlaod files
 # TR - Eventually I should loop over all studies
 #----------------------------------------------------------------------------------------
-study <- 'Exp2019'
+study <- 'Obs2019'
 
 # set path to the data directory
 #----------------------------------------------------------------------------------------
@@ -50,6 +50,12 @@ tmp <- substr (tmp, nchar (tmp) - 12, nchar (tmp))
 tmp <- tmp [-1]
 measurementDates <- tmp; rm (tmp)
   
+# Sort out old format
+#----------------------------------------------------------------------------------------
+if (study == 'Obs2018') {
+  measurementDates <- measurementDates [-c (1:2)]
+}
+
 # loop over dates
 #----------------------------------------------------------------------------------------
 for (dateTime in measurementDates [28]) {
@@ -71,11 +77,18 @@ for (dateTime in measurementDates [28]) {
   bounds <- read_csv (file = paste0 (dirPath,'raw/',study,'/StemResp',study,'-bounds.csv'),
                       col_types = cols ())
   bounds <- bounds [bounds [['TIMESTAMP']] == dateTime, ]
-  boundaries <- tibble (boundary = as.numeric (bounds [2:dim (bounds) [2]]),
-                        treeID = as.numeric (substr (names (bounds [2:dim (bounds) [2]]), 1, 2)),
-                        chamberID = as.numeric (substr (names (bounds [2:dim (bounds) [2]]), 4, 4)),
-                        lower = ifelse (substr (names (bounds [2:dim (bounds) [2]]), 5, 5) == 'l', TRUE, FALSE))
-
+  if (substr (study, 1, 3) == 'Exp') {
+    boundaries <- tibble (boundary = as.numeric (bounds [2:dim (bounds) [2]]),
+                          treeID = as.numeric (substr (names (bounds [2:dim (bounds) [2]]), 1, 2)),
+                          chamberID = as.numeric (substr (names (bounds [2:dim (bounds) [2]]), 4, 4)),
+                          lower = ifelse (substr (names (bounds [2:dim (bounds) [2]]), 5, 5) == 'l', TRUE, FALSE))
+  } else {
+    boundaries <- tibble (boundary = as.numeric (bounds [2:dim (bounds) [2]]),
+                          treeID = as.numeric (substr (names (bounds [2:dim (bounds) [2]]), 2, 3)),
+                          chamberID = 1,
+                          lower = ifelse (substr (names (bounds [2:dim (bounds) [2]]), 4, 4) == 'l', TRUE, FALSE))
+  }
+  
   # filter out only the relevant files for the study
   #--------------------------------------------------------------------------------------
   listDir <- listDir [substr (listDir, 3, 2 + nchar (study)) == study]
@@ -94,23 +107,25 @@ for (dateTime in measurementDates [28]) {
   #--------------------------------------------------------------------------------------
   if (study == 'Exp2019') {
     treeIDs <- as.numeric (substring (listDir, 14, 14)) 
-  } else if (study != 'Obs2018' & study != 'Obs2019') {
-    treeIDs <- as.numeric (substring (listDir, 11, 12)) # TR- Needs testing
+  } else if (study == 'Obs2018' | study == 'Obs2019') {
+    treeIDs <- as.numeric (substring (listDir, 12, 13)) 
   } else if (study == 'Exp2018') {
     treeIDs <- as.numeric (substring (listDir, 11, 12))
-  }# else if (study == 'Exp2017') {
-  #  treeIDs <- as.numeric (substring (listDir, 12, 13))
-  #} # TR - Needs testing
+  } else if (study == 'Exp2017') {
+    treeIDs <- as.numeric (substring (listDir, 12, 13)) # TR - Needs testing
+  }
   
   # get chamber identifiers
   #--------------------------------------------------------------------------------------
   if (study == 'Exp2019') {
     chamberIDs <- as.numeric (substring (listDir, 16, 16))
-  } else if (study != 'Obs2018' & study != 'Obs2019') {
-    chamberIDs <- as.numeric (substring (listDir, 16, 16))
+  } else if (study == 'Obs2018' | study == 'Obs2019') {
+    chamberIDs <- rep (1, length (treeIDs))
   } else if (study == 'Exp2018') {
     chamberIDs <- as.numeric (substr (listDir, 16, 16))
-  }
+  }  else if (study == 'Exp2017') {
+    chamberIDs <- as.numeric (substr (listDir, 16, 16)) # TR - Needs testing
+  } 
   
   # For the Exp2018 the treeIDs changed, here we correct for obsolete treeIDs
   #--------------------------------------------------------------------------------------
@@ -157,6 +172,8 @@ for (dateTime in measurementDates [28]) {
   } else if (study == 'Exp2019') {
     treatment <- rep (1, length (treeIDs))
     treatment [treeIDs %in% c (2, 4, 6, 7)] <- 5
+  } else if (study == 'Exp2017') {
+    treatment <- 1 # TR - This needs changing!
   }
   
   # Put all info together into a tibble
@@ -200,8 +217,7 @@ for (dateTime in measurementDates [28]) {
     measurement <- read_csv (file = currentFile, col_types = cols ())
     
     # Determine name of the time column depending on flux puppy version (age of the file)  
-    if ((study == 'Exp2018' | study == 'Exp2017') &
-        as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-06-07')) {
+    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-06-07')) {
       colTime <- 'Seconds'
     } else {
       colTime <- 'RunTime'
