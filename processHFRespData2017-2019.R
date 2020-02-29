@@ -37,20 +37,22 @@ source ('selectData.R')
 # set study for which to downlaod files
 # TR - Eventually I should loop over all studies
 #----------------------------------------------------------------------------------------
-study <- 'Exp2018'
-
-# get list of all dates for a study
-#----------------------------------------------------------------------------------------
-listGD <- drive_ls (paste0 ('./Respiration/',study,'/'))
-measurementDates <- listGD [['name']]; rm (listGD)
+study <- 'Exp2019'
 
 # set path to the data directory
 #----------------------------------------------------------------------------------------
 dirPath <- '/media/tim/dataDisk/PlantGrowth/data/respiration/'
 
+# get list of all dates for a study
+#----------------------------------------------------------------------------------------
+tmp <- list.dirs (paste0 (dirPath,'raw/',study,'/'))
+tmp <- substr (tmp, nchar (tmp) - 12, nchar (tmp))
+tmp <- tmp [-1]
+measurementDates <- tmp; rm (tmp)
+  
 # loop over dates
 #----------------------------------------------------------------------------------------
-for (dateTime in measurementDates) {
+for (dateTime in measurementDates [28]) {
   
   # now processing 
   #--------------------------------------------------------------------------------------
@@ -90,12 +92,11 @@ for (dateTime in measurementDates) {
   
   # get tree identifiers
   #--------------------------------------------------------------------------------------
-#  if (study == 'Exp2019') {
-#    treeIDs <- as.numeric (substring (listDir, 14, 14)) # TR - Needs testing
-#  } else if (study != 'Obs2018' & study != 'Obs2019') {
-#    treeIDs <- as.numeric (substring (listDir, 11, 12)) # TR- Needs testing
-#  } else 
-  if (study == 'Exp2018') {
+  if (study == 'Exp2019') {
+    treeIDs <- as.numeric (substring (listDir, 14, 14)) 
+  } else if (study != 'Obs2018' & study != 'Obs2019') {
+    treeIDs <- as.numeric (substring (listDir, 11, 12)) # TR- Needs testing
+  } else if (study == 'Exp2018') {
     treeIDs <- as.numeric (substring (listDir, 11, 12))
   }# else if (study == 'Exp2017') {
   #  treeIDs <- as.numeric (substring (listDir, 12, 13))
@@ -103,12 +104,11 @@ for (dateTime in measurementDates) {
   
   # get chamber identifiers
   #--------------------------------------------------------------------------------------
-#  if (study == 'Exp2019') {
-#    chamberIDs <- as.numeric (substring (listDir, 16, 16))
-#  } else if (study != 'Obs2018' & study != 'Obs2019') {
-#    chamberIDs <- as.numeric (substring (listDir, 16, 16))
-#  } else 
-  if (study == 'Exp2018') {
+  if (study == 'Exp2019') {
+    chamberIDs <- as.numeric (substring (listDir, 16, 16))
+  } else if (study != 'Obs2018' & study != 'Obs2019') {
+    chamberIDs <- as.numeric (substring (listDir, 16, 16))
+  } else if (study == 'Exp2018') {
     chamberIDs <- as.numeric (substr (listDir, 16, 16))
   }
   
