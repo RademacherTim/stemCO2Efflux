@@ -5,18 +5,18 @@
 #                                           Northern Arizona University 
 # Email: trademacher@fas.harvard.edu
 #
-# Last updated: 2019-12-18
+# Last updated: 2020-02-28
 #
 # Data are either LiCor-820 and LiCor-840 outputs or outputs of FluxPuppy (Carbone et 
-# al., 2019) for either cylindrical stem chambers (4" diameter and a depth of 3" or 4") 
-# or cylindrical soil respiration chambers (6" diameter and a 2" of depth).
+# al., 2019) for either cylindrical stem chambers (4" diameter and a depth of 3" or 4").
 #
 # Data was collected by: Tim Rademacher, 
 #                        Brooklynn Davis, 
 #                        David Basler,
 #                        Elise Miller,
 #                        Emory Elis, 
-#                        Kyle Wyche. 
+#                        Kyle Wyche,
+#                        Shawna Greyeyes
 #
 #----------------------------------------------------------------------------------------
 
@@ -37,21 +37,20 @@ source ('selectData.R')
 # set study for which to downlaod files
 # TR - Eventually I should loop over all studies
 #----------------------------------------------------------------------------------------
-study <- 'Exp2019'
+study <- 'Exp2018'
 
 # get list of all dates for a study
 #----------------------------------------------------------------------------------------
 listGD <- drive_ls (paste0 ('./Respiration/',study,'/'))
-measurementDates <- listGD [['name']]
+measurementDates <- listGD [['name']]; rm (listGD)
 
-# create a temporary directory
+# set path to the data directory
 #----------------------------------------------------------------------------------------
-tempDirName <- tempdir ()
-workingDir <- getwd ()
+dirPath <- '/media/tim/dataDisk/PlantGrowth/data/respiration/'
 
 # loop over dates
 #----------------------------------------------------------------------------------------
-for (dateTime in measurementDates) {
+for (dateTime in measurementDates [58]) {
   
   # now processing 
   #--------------------------------------------------------------------------------------
@@ -59,68 +58,58 @@ for (dateTime in measurementDates) {
   
   # list all respiration files measured at the same date and time
   #--------------------------------------------------------------------------------------
-  listDir <- drive_ls (paste0 ('./Respiration/',study,'/',dateTime,'/'))
+  listDir <- list.files (paste0 (dirPath,'raw/',study,'/',dateTime,'/'))
   
   # sort out meta-data files for now to reduce runtime
   #--------------------------------------------------------------------------------------
-  listDir <- listDir %>% filter (substr (listDir [['name']], 1, 1) == 'G')
-  
-  # change directory to temporary directory
-  #--------------------------------------------------------------------------------------
-  setwd (tempDirName)
-  
-  # download the data for each date into a temporary folder
-  #--------------------------------------------------------------------------------------
-  res <- sapply (1:dim (listDir) [1], function (x) drive_download (file = as_id (listDir [['id']] [x],
-                                                                                 verbose = FALSE, 
-                                                                                 overwrite = TRUE)))
-  rm (res)
-  
-  # return to original working directory
-  #--------------------------------------------------------------------------------------
-  setwd (workingDir)
+  listDir <- listDir [substr (listDir, 1, 1) == 'G']
   
   # read bounds for each file
-  #------------------------------------------------------------------------------------#
-  bounds <- read_csv (file = paste0 ('../data/respiration/Resp',study,'-bounds.csv'),
+  #--------------------------------------------------------------------------------------
+  bounds <- read_csv (file = paste0 (dirPath,'raw/',study,'/StemResp',study,'-bounds.csv'),
                       col_types = cols ())
   bounds <- bounds [bounds [['TIMESTAMP']] == dateTime, ]
-  # TR does not work anymore bounds <- bounds [!is.na (bounds)]
-  lowerBounds <- as.numeric (bounds [seq (3, length (bounds), 2)])
-  upperBounds <- as.numeric (bounds [seq (4, length (bounds), 2)])
-  
+  boundaries <- tibble (boundary = as.numeric (bounds [2:dim (bounds) [2]]),
+                        treeID = as.numeric (substr (names (bounds [2:dim (bounds) [2]]), 1, 2)),
+                        chamberID = as.numeric (substr (names (bounds [2:dim (bounds) [2]]), 4, 4)),
+                        lower = ifelse (substr (names (bounds [2:dim (bounds) [2]]), 5, 5) == 'l', TRUE, FALSE))
+
   # filter out only the relevant files for the study
   #--------------------------------------------------------------------------------------
-  listDir <- listDir %>% filter (substring (listDir [['name']], 3, 2 + nchar (study)) == study)
+  listDir <- listDir [substr (listDir, 3, 2 + nchar (study)) == study]
+  if (length (listDir) == 0) next
   
   # extract metadata from file name
   #--------------------------------------------------------------------------------------
-  tmp <- unlist (strsplit (listDir [['name']], '_'))
+  tmp <- unlist (strsplit (listDir, '_'))
   datestr <- tmp [seq (3, length (tmp), 4)]
   timestr <- tmp [seq (4, length (tmp), 4)]
   timestr <- substring (timestr, 1, nchar (timestr) - 4)
   timestamp <- strptime (paste (datestr, timestr),"%Y%m%d %H%M%S", tz = 'EST')
+  rm (tmp, datestr, timestr)
   
   # get tree identifiers
   #--------------------------------------------------------------------------------------
-  if (study == 'Exp2019') {
-    treeIDs <- as.numeric (substring (listDir [['name']], 14, 14))
-  } else if (study != 'Obs2018' & study != 'Obs2019') {
-    treeIDs <- as.numeric (substring (listDir [['name']], 11, 12))
-  } else if (study == 'Exp2018') {
-    treeIDs <- as.numeric (substring (listDir [['name']], 12, 13))
-  } else if (study == 'Exp2017') {
-    treeIDs <- as.numeric (substring (listDir [['name']], 12, 13))
-  }
+#  if (study == 'Exp2019') {
+#    treeIDs <- as.numeric (substring (listDir, 14, 14)) # TR - Needs testing
+#  } else if (study != 'Obs2018' & study != 'Obs2019') {
+#    treeIDs <- as.numeric (substring (listDir, 11, 12)) # TR- Needs testing
+#  } else 
+  if (study == 'Exp2018') {
+    treeIDs <- as.numeric (substring (listDir, 11, 12))
+  }# else if (study == 'Exp2017') {
+  #  treeIDs <- as.numeric (substring (listDir, 12, 13))
+  #} # TR - Needs testing
   
   # get chamber identifiers
   #--------------------------------------------------------------------------------------
-  if (study == 'Exp2019') {
-    chamberIDs <- as.numeric (substring (listDir [['name']], 16, 16))
-  } else if (study != 'Obs2018' & study != 'Obs2019') {
-    chamberIDs <- as.numeric (substring (listDir [['name']], 16, 16))
-  } else if (study == 'Exp2018') {
-    chamberIDs <- rep (NA, length (treeIDs))
+#  if (study == 'Exp2019') {
+#    chamberIDs <- as.numeric (substring (listDir, 16, 16))
+#  } else if (study != 'Obs2018' & study != 'Obs2019') {
+#    chamberIDs <- as.numeric (substring (listDir, 16, 16))
+#  } else 
+  if (study == 'Exp2018') {
+    chamberIDs <- as.numeric (substr (listDir, 16, 16))
   }
   
   # For the Exp2018 the treeIDs changed, here we correct for obsolete treeIDs
@@ -160,26 +149,19 @@ for (dateTime in measurementDates) {
   # Add treatment
   #--------------------------------------------------------------------------------------
   if (study == 'Exp2018') {
-    treatment <- rep ('control', length (treeIDs))
-    treatment [treeIDs <= 10] <- 'compression'
-    treatment [treeIDs <= 5]  <- 'chilling'   
+    treatment <- rep (1, length (treeIDs))
+    treatment [treeIDs <= 10] <- 4
+    treatment [treeIDs <= 5]  <- 5   
   } else if (study == 'Obs2018' | study == 'Obs2019') {
-    treatment <- rep ('control', length (treeIDs))
+    treatment <- rep (1, length (treeIDs))
   } else if (study == 'Exp2019') {
-    treatment <- rep ('control', length (treeIDs))
-    treatment [treeIDs == 1] <- 'control'
-    treatment [treeIDs == 2] <- 'chilling'
-    treatment [treeIDs == 3] <- 'control'
-    treatment [treeIDs == 4] <- 'chilling'
-    treatment [treeIDs == 5] <- 'control'
-    treatment [treeIDs == 6] <- 'chilling'
-    treatment [treeIDs == 7] <- 'chilling'
-    treatment [treeIDs == 8] <- 'control'
+    treatment <- rep (1, length (treeIDs))
+    treatment [treeIDs %in% c (2, 4, 6, 7)] <- 5
   }
   
   # Put all info together into a tibble
   #--------------------------------------------------------------------------------------
-  sessionData <- tibble (file      = listDir [['name']],
+  sessionData <- tibble (file      = listDir,
                          treatment = treatment,
                          tree      = treeIDs,
                          chamber   = chamberIDs,
@@ -194,12 +176,13 @@ for (dateTime in measurementDates) {
   
   # Pull appropriate meterological data from the HF website
   #--------------------------------------------------------------------------------------
-  met_HF <- read_csv (file = url ("http://harvardforest.fas.harvard.edu/sites/harvardforest.fas.harvard.edu/files/data/p00/hf001/hf001-10-15min-m.csv","rb"))
+  met_HF <- read_csv (file = url ("http://harvardforest.fas.harvard.edu/sites/harvardforest.fas.harvard.edu/files/data/p00/hf001/hf001-10-15min-m.csv","rb"),
+                      col_types = cols ())
   met_HF$TIMESTAMP <- as.POSIXct (met_HF$datetime, 
                                   format = '%Y-%m-%dT%H:%M')
   attr (met_HF$TIMESTAMP, "tzone") <- "EST"
   
-  # TR - Maybe I could also include soil moisture here in the future
+  # TR - I should include soil moisture here in the future
   #--------------------------------------------------------------------------------------
 
   
@@ -209,21 +192,32 @@ for (dateTime in measurementDates) {
     
     # assign each of the files to a general variable "currentfile"
     #------------------------------------------------------------------------------------
-    currentFile <- sprintf ('%s/%s',
-                            tempDirName,
+    currentFile <- sprintf ('%sraw/%s/%s/%s', dirPath, study, dateTime, 
                             sessionData$file [ifile])
     
     # read in the data file
     #------------------------------------------------------------------------------------
     measurement <- read_csv (file = currentFile, col_types = cols ())
     
+    # Determine name of the time column depending on flux puppy version (age of the file)  
+    if ((study == 'Exp2018' | study == 'Exp2017') &
+        as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-06-07')) {
+      colTime <- 'Seconds'
+    } else {
+      colTime <- 'RunTime'
+    }
     
     # truncate data to select only reasonable values
     #------------------------------------------------------------------------------------
+    condition <- boundaries [['treeID']] == sessionData [['tree']] [ifile] &
+                 boundaries [['chamberID']] == sessionData [['chamber']] [ifile]  
     dat <- selectData (ds = measurement,
-                       lowerBound = lowerBounds [ifile],
-                       upperBound = upperBounds [ifile],
-                       plotB = TRUE)
+                       lowerBound = boundaries [['boundary']] [condition & boundaries [['lower']] == TRUE],
+                       upperBound = boundaries [['boundary']] [condition & boundaries [['lower']] == FALSE],
+                       plotB = TRUE, 
+                       colTime = colTime)
+    title (main = paste ('Stem Respiration:', 'tree', sessionData$tree [ifile], 'chamber',
+                         sessionData$chamber [ifile], sessionData$timestamp [ifile]))
     
     # Find closest 15 minute interval
     #------------------------------------------------------------------------------------
@@ -262,7 +256,7 @@ for (dateTime in measurementDates) {
     #------------------------------------------------------------------------------------#
     resFit <- calcClosedChamberFlux (dat,
                                      colConc     = 'CO2.dry',
-                                     colTime     = 'RunTime', # redundant
+                                     colTime     = colTime, 
                                      colTemp     = 'airt.C',
                                      colPressure = 'pres.Pa',
                                      volume      = chamberGeometry [1],
@@ -279,7 +273,7 @@ for (dateTime in measurementDates) {
 
     # Plot data, if so desired
     par (mfrow = c (1, 1))
-    plot (x = dat [['RunTime']], 
+    plot (x = dat [[colTime]], 
           y = dat [['CO2.dry']],
           xlab = 'time [s]',
           ylab = 'CO2 concentration [ppm]')
@@ -287,7 +281,7 @@ for (dateTime in measurementDates) {
                          sessionData$chamber [ifile], sessionData$timestamp [ifile]))
       
     # plot selected data bounds
-    points (x = dat [['RunTime']],
+    points (x = dat [[colTime]],
             y = dat [['CO2.dry']],
             col  = '#91b9a499',
             pch  = 19,
@@ -295,27 +289,25 @@ for (dateTime in measurementDates) {
       
     # add a line for the calculated slope
     #------------------------------------------------------------------------------------
-    abline (lm (dat [['CO2.dry']] ~ dat [['RunTime']]),
+    abline (lm (dat [['CO2.dry']] ~ dat [[colTime]]),
             lwd = 4,
             col = '#91b9a499')
   }
   
   # save the respiration session data for this date time
   #--------------------------------------------------------------------------------------
-  saveRDS (sessionData, file = paste0 (dateTime,'_sessionData.rds'))
+  saveRDS (sessionData, file = paste0 (dirPath, 'processed/',study,'/',dateTime,
+                                       '_sessionData.rds'))
 }
 
-# Delete the temporary directory and containing files
-#----------------------------------------------------------------------------------------
-unlink (tempDirName, recursive = T) 
-
 # Read all processed data
+
 # Start with processed data from 2017 experiment, which was not using FluxPuppy
-# After that read all the .rds file with data for each session
 #----------------------------------------------------------------------------------------
-data <- read_csv (file = '../data/respiration/resp_compression_2017_11_01.csv', 
+data <- read_csv (file = paste0 (dirPath,'processed/Exp2017/resp_compression_2017_11_01.csv'), 
                   col_types = cols ())
 
-
+# After that read all the .rds file with data for each session
+#----------------------------------------------------------------------------------------
 
 #========================================================================================
