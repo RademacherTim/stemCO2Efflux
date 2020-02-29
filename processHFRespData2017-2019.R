@@ -58,7 +58,7 @@ if (study == 'Obs2018') {
 
 # loop over dates
 #----------------------------------------------------------------------------------------
-for (dateTime in measurementDates [28]) {
+for (dateTime in measurementDates) {
   
   # now processing 
   #--------------------------------------------------------------------------------------
