@@ -315,32 +315,4 @@ for (dateTime in measurementDates) {
   saveRDS (sessionData, file = paste0 (dirPath, 'processed/',study,'/',dateTime,
                                        '_sessionData.rds'))
 }
-
-# Read all processed data
-#----------------------------------------------------------------------------------------
-
-# Start with processed data from 2017 experiment, which was not using FluxPuppy
-#----------------------------------------------------------------------------------------
-data <- read_csv (file = paste0 (dirPath,'processed/Exp2017/resp_compression_2017_11_01.csv'), 
-                  col_types = cols ())
-
-# Define data directory
-#----------------------------------------------------------------------------------------
-dataDir <- '/media/tim/dataDisk/PlantGrowth/data/respiration/processed'
-
-# Create list of all the .rds file with data for each session
-#----------------------------------------------------------------------------------------
-tmp <- list.files (path = dataDir, pattern = '.rds', recursive = TRUE)
-fileList <- tibble (study = unlist (strsplit (tmp, '/')) [seq (1, 269, by = 2)],
-                    fileName =  unlist (strsplit (tmp, '/')) [seq (2, 270, by = 2)])
-# Loop over each .rds file with processed data
-#----------------------------------------------------------------------------------------
-for (i in 1:dim (fileList) [1]) {
-  # Read the ith file
-  tmp <- readRDS (paste0 (dataDir,'/',fileList [['study']] [i],'/',fileList [['fileName']] [i]))
-  # Add the ith file to the tibble with all data
-  if (i == 1) {
-    respData <- tibble (tmp)
-  }
-}
 #========================================================================================
