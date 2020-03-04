@@ -20,11 +20,14 @@
 #
 #----------------------------------------------------------------------------------------
 
-# TR - To-do: integrate soil moisture read-outs and also process the really old data format.
+# TR - To-do: - Integrate soil moisture read-outs
+#             - Process the really old data format
+#             - Check whether the measurement is from Li-840 and use the actually 
+#               measured water vapour pressure
+#             - Process soil respiration measurements
 
 # load dependencies
 #----------------------------------------------------------------------------------------
-library ('googledrive')
 library ('tidyverse')
 
 # load source preprocess data (including chamber volume and bounds, plotting function)
@@ -39,7 +42,6 @@ source ('selectData.R')
 # set path to the data directory
 #----------------------------------------------------------------------------------------
 dirPath <- '/media/tim/dataDisk/PlantGrowth/data/respiration/'
-
 
 # loop over studies for which to process files
 #----------------------------------------------------------------------------------------
@@ -195,6 +197,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     # Put all info together into a tibble
     #--------------------------------------------------------------------------------------
     sessionData <- tibble (file      = listDir,
+                           study     = study,
                            treatment = treatment,
                            tree      = treeIDs,
                            species   = species,

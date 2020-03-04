@@ -17,6 +17,7 @@ respData <- read_csv (file = paste0 (dataDir,'/Exp2017/resp_compression_2017_11_
 # Wrangle data into same format as the .rds files
 #----------------------------------------------------------------------------------------
 respData <- tibble (file      = NA,
+                    study     = 'Exp2017',
                     treatment = NA, 
                     tree      = respData [['tree']],
                     species   = 'Pinus strobus',
@@ -122,5 +123,5 @@ respData [['flux']] [respData [['file']] %in% c ("G-Exp2018_11pxp2_20180625_0802
 
 # Find outliers
 #----------------------------------------------------------------------------------------
-boxplot (respData [['flux']])
-respData [which (respData [['flux']] < 0), ]
+# boxplot (respData [['flux']])
+# respData [which (respData [['flux']] < 0), ]
