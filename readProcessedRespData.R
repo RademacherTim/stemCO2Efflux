@@ -124,12 +124,3 @@ respData [['flux']] [respData [['file']] %in% c ("G-Exp2018_11pxp2_20180625_0802
 #----------------------------------------------------------------------------------------
 boxplot (respData [['flux']])
 respData [which (respData [['flux']] < 0), ]
-
-# Plot the respiration rate versus temperature
-#----------------------------------------------------------------------------------------
-plot (respData [['airt.C']] [respData [['treatment']] == 1 & 
-                             respData [['species']] == 'Pinus strobus'],
-      respData [['flux']] [respData [['treatment']] == 1 & 
-                           respData [['species']] == 'Pinus strobus'],
-      ylab = 'stem CO2 efflux', xlab = 'temperature (degC)', xlim = c (0, 30), 
-      ylim = c (0, 30), las = 1, pch = 19, col = '')
