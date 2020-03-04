@@ -16,19 +16,21 @@ respData <- read_csv (file = paste0 (dataDir,'/Exp2017/resp_compression_2017_11_
 
 # Wrangle data into same format as the .rds files
 #----------------------------------------------------------------------------------------
-respData <- tibble (file = NA,
+respData <- tibble (file      = NA,
                     treatment = NA, 
-                    tree = respData [['tree']],
-                    species = 'Pinus strobus',
-                    chamber = respData [['chamber']],
+                    tree      = respData [['tree']],
+                    species   = 'Pinus strobus',
+                    chamber   = respData [['chamber']],
                     timestamp = as.POSIXct (paste0 (respData [['date']],' 15:00'), tz = 'EST'),
-                    session = paste0 (format (respData [['date']], '%Y%m%d'),'_1500'),
-                    flux = respData [['flux']],
-                    sdFlux = respData [['fluxSD']],
-                    ea.Pa = NA,
-                    airt.C = NA,
-                    pres.Pa = NA,
-                    H2O.ppt = NA)
+                    session   = paste0 (format (respData [['date']], '%Y%m%d'),'_1500'),
+                    flux      = respData [['flux']],
+                    sdFlux    = respData [['fluxSD']],
+                    ea.Pa     = NA,
+                    airt.C    = NA,
+                    pres.Pa   = NA,
+                    H2O.ppt   = NA,
+                    AIC       = respData [['AIC']],
+                    r2        = respData [['r2']])
 
 #--------------------------------------------------------------------------------------
 # Add met data to the pre-Flux Puppy data
@@ -85,9 +87,9 @@ respData [['treatment']] [respData [['tree']] %in% douCompTrees] <- 4
 
 # Create list of all the .rds file with data for each session
 #----------------------------------------------------------------------------------------
-tmp <- list.files (path = dataDir, pattern = '.rds', recursive = TRUE)
-fileList <- tibble (study = unlist (strsplit (tmp, '/')) [seq (1, 269, by = 2)],
-                    fileName =  unlist (strsplit (tmp, '/')) [seq (2, 270, by = 2)])
+tmp <- list.files (path = dataDir, pattern = 'sessionData.rds', recursive = TRUE)
+fileList <- tibble (study = unlist (strsplit (tmp, '/')) [seq (1, length (tmp), by = 2)],
+                    fileName =  unlist (strsplit (tmp, '/')) [seq (2, length (tmp), by = 2)])
 
 # Loop over each .rds file with processed data
 #----------------------------------------------------------------------------------------
@@ -99,6 +101,7 @@ for (i in 1:dim (fileList) [1]) {
 }
 
 # Set small negative values with decent measurement to 0
+#----------------------------------------------------------------------------------------
 respData [['flux']] [respData [['file']] %in% c ("G-Exp2018_04pxp2_20180727_135344.csv",
                                                  "G-Exp2018_03pxp2_20180806_140110.csv",
                                                  "G-Exp2018_05pxp2_20180817_131839.csv",
@@ -110,18 +113,23 @@ respData [['flux']] [respData [['file']] %in% c ("G-Exp2018_04pxp2_20180727_1353
 respData [['flux']] [c (1193, 1637)] <- 0.0
 
 # Set bad measurements to NA
+#----------------------------------------------------------------------------------------
 respData [['flux']] [respData [['file']] %in% c ("G-Exp2018_11pxp2_20180625_080256.csv",
                                                  "G-Exp2018_02pxp3_20180727_133311.csv",
                                                  "G-Exp2018_04pxp3_20180727_135607.csv",
                                                  "G-Exp2018_05pxp2_20180727_141552.csv",
-                                                 "G-Exp2018_11pxp2_20180824_142131.csv",
-                                                 "G-Obs2019_P21_20191106_133432.csv")] <- NA
+                                                 "G-Exp2018_11pxp2_20180824_142131.csv")] <- NA
 
 # Find outliers
+#----------------------------------------------------------------------------------------
 boxplot (respData [['flux']])
 respData [which (respData [['flux']] < 0), ]
 
 # Plot the respiration rate versus temperature
-plot (respData [['airt.C']] [respData [['treatment']] == 1],
-      respData [['flux']] [respData [['treatment']] == 1],
-      ylab = 'stem CO2 efflux', xlab = 'temperature (degC)')
+#----------------------------------------------------------------------------------------
+plot (respData [['airt.C']] [respData [['treatment']] == 1 & 
+                             respData [['species']] == 'Pinus strobus'],
+      respData [['flux']] [respData [['treatment']] == 1 & 
+                           respData [['species']] == 'Pinus strobus'],
+      ylab = 'stem CO2 efflux', xlab = 'temperature (degC)', xlim = c (0, 30), 
+      ylim = c (0, 30), las = 1, pch = 19, col = '')

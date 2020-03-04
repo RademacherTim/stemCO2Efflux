@@ -20,6 +20,8 @@
 #
 #----------------------------------------------------------------------------------------
 
+# TR - To-do: integrate soil moisture read-outs and also process the really old data format.
+
 # load dependencies
 #----------------------------------------------------------------------------------------
 library ('googledrive')
@@ -34,25 +36,27 @@ res <- sapply (sprintf ('./RespChamberProc/R/%s', fileNames), source); rm (res)
 #----------------------------------------------------------------------------------------
 source ('selectData.R')
 
+# set path to the data directory
+#----------------------------------------------------------------------------------------
+dirPath <- '/media/tim/dataDisk/PlantGrowth/data/respiration/'
+
+
 # loop over studies for which to process files
 #----------------------------------------------------------------------------------------
 for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
-  
-  # set path to the data directory
-  #----------------------------------------------------------------------------------------
-  dirPath <- '/media/tim/dataDisk/PlantGrowth/data/respiration/'
   
   # get list of all dates for a study
   #----------------------------------------------------------------------------------------
   tmp <- list.dirs (paste0 (dirPath,'raw/',study,'/'))
   tmp <- substr (tmp, nchar (tmp) - 12, nchar (tmp))
   tmp <- tmp [-1]
-  measurementDates <- tmp; rm (tmp)
-    
+  
   # Sort out old format
   #----------------------------------------------------------------------------------------
-  if (study == 'Obs2018') {
-    measurementDates <- measurementDates [-c (1:2)]
+  if (study == 'Exp2017' | study == 'Obs2018') {
+    measurementDates <- tmp [substr (tmp, 1, 3) == '201']; rm (tmp)
+  } else {
+    measurementDates <- tmp; rm (tmp)  
   }
   
   # loop over dates
@@ -61,7 +65,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # now processing 
     #--------------------------------------------------------------------------------------
-    print (paste0 ('Now processing: ',dateTime))
+    print (paste0 ('Now processing: ',dateTime,' for ',study))
     
     # list all respiration files measured at the same date and time
     #--------------------------------------------------------------------------------------
@@ -111,7 +115,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     } else if (study == 'Exp2018') {
       treeIDs <- as.numeric (substring (listDir, 11, 12))
     } else if (study == 'Exp2017') {
-      treeIDs <- as.numeric (substring (listDir, 12, 13)) # TR - Needs testing
+      treeIDs <- as.numeric (substring (listDir, 11, 12))
     }
     
     # get chamber identifiers
@@ -178,11 +182,11 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     # Determine the species of the trees
     #--------------------------------------------------------------------------------------
     if (substr (study, 1, 3) == 'Obs') {
-      species <- as.numeric (substr (listDir, 11, 11))
+      species <- substr (listDir, 11, 11)
       species [species == 'A'] <- 'Acer rubrum'
       species [species == 'P'] <- 'Pinus strobus'
       species [species == 'Q'] <- 'Quercus rubra'
-    } else if (study == 'Exp2018' | study == 'Exp2019') {
+    } else if (study == 'Exp2017' | study == 'Exp2018') {
       species <- 'Pinus strobus'
     } else if (study == 'Exp2019') {
       species <- 'Acer rubrum'
@@ -208,12 +212,13 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # Pull appropriate meterological data from the HF website
     #--------------------------------------------------------------------------------------
-    met_HF <- read_csv (file = url ("http://harvardforest.fas.harvard.edu/sites/harvardforest.fas.harvard.edu/files/data/p00/hf001/hf001-10-15min-m.csv","rb"),
-                        col_types = cols ())
-    met_HF$TIMESTAMP <- as.POSIXct (met_HF$datetime,
-                                    format = '%Y-%m-%dT%H:%M')
-    attr (met_HF$TIMESTAMP, "tzone") <- "EST"
-  
+    if (!exists ('met_HF')) {
+      met_HF <- read_csv (file = url ("http://harvardforest.fas.harvard.edu/sites/harvardforest.fas.harvard.edu/files/data/p00/hf001/hf001-10-15min-m.csv","rb"),
+                          col_types = cols ())
+      met_HF$TIMESTAMP <- as.POSIXct (met_HF$datetime,
+                                      format = '%Y-%m-%dT%H:%M')
+      attr (met_HF$TIMESTAMP, "tzone") <- "EST"
+    }
     # TR - I should include soil moisture here in the future
     #--------------------------------------------------------------------------------------
   
@@ -240,15 +245,17 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       
       # truncate data to select only reasonable values
       #------------------------------------------------------------------------------------
+      PLOT1 <- FALSE
       condition <- boundaries [['treeID']] == sessionData [['tree']] [ifile] &
                    boundaries [['chamberID']] == sessionData [['chamber']] [ifile]  
       dat <- selectData (ds = measurement,
                          lowerBound = boundaries [['boundary']] [condition & boundaries [['lower']] == TRUE],
                          upperBound = boundaries [['boundary']] [condition & boundaries [['lower']] == FALSE],
-                         plotB = TRUE, 
+                         plotB = PLOT1, 
                          colTime = colTime)
-      title (main = paste ('Stem Respiration:', 'tree', sessionData$tree [ifile], 'chamber',
-                           sessionData$chamber [ifile], sessionData$timestamp [ifile]))
+      if (PLOT1) title (main = paste ('Stem Respiration:', 'tree', sessionData$tree [ifile], 
+                                      'chamber', sessionData$chamber [ifile], 
+                                      sessionData$timestamp [ifile]))
       
       # Find closest 15 minute interval
       #------------------------------------------------------------------------------------
@@ -285,19 +292,19 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       
       # Calculate chamber flux for entire timeseries
       #------------------------------------------------------------------------------------#
-      resFit <- calcClosedChamberFlux (dat,
-                                       colConc     = 'CO2.dry',
-                                       colTime     = colTime, 
-                                       colTemp     = 'airt.C',
-                                       colPressure = 'pres.Pa',
-                                       volume      = chamberGeometry [1],
-                                       area        = chamberGeometry [2])
+      suppressWarnings(resFit <- calcClosedChamberFlux (dat,
+                                                        colConc     = 'CO2.dry',
+                                                        colTime     = colTime, 
+                                                        colTemp     = 'airt.C',
+                                                        colPressure = 'pres.Pa',
+                                                        volume      = chamberGeometry [1],
+                                                        area        = chamberGeometry [2]))
       
       # Put all the data into the table 'sessiondata" you created earlier
       #------------------------------------------------------------------------------------#
       sessionData [['flux']]    [ifile] <- resFit [['flux']] # flux is in micromol / s
       sessionData [['sdFlux']]  [ifile] <- resFit [['sdFlux']]
-      sessionData [['AIC']]      [ifile] <- resFit [['AIC']]
+      sessionData [['AIC']]     [ifile] <- resFit [['AIC']]
       sessionData [['r2']]      [ifile] <- resFit [['r2']]
       sessionData [['ea.Pa']]   [ifile] <- ea.Pa   # add actual water vapour pressure [Pa] to alldata data.frame
       sessionData [['airt.C']]  [ifile] <- airt.C   # add air temperature [degC] to alldata data.frame
@@ -305,26 +312,29 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       sessionData [['H2O.ppt']] [ifile] <- ea.Pa / (pres.Pa - ea.Pa) * 1.0e3   
   
       # Plot data, if so desired
-      par (mfrow = c (1, 1))
-      plot (x = dat [[colTime]], 
-            y = dat [['CO2.dry']],
-            xlab = 'time [s]',
-            ylab = 'CO2 concentration [ppm]')
-      title (main = paste ('Stem Respiration:', 'tree', sessionData$tree [ifile], 'chamber',
-                           sessionData$chamber [ifile], sessionData$timestamp [ifile]))
-        
-      # plot selected data bounds
-      points (x = dat [[colTime]],
+      PLOT2 <- FALSE
+      if (PLOT2) {
+        par (mfrow = c (1, 1))
+        plot (x = dat [[colTime]], 
               y = dat [['CO2.dry']],
-              col  = '#91b9a499',
-              pch  = 19,
-              cex  = 0.9)
-        
-      # add a line for the calculated slope
-      #------------------------------------------------------------------------------------
-      abline (lm (dat [['CO2.dry']] ~ dat [[colTime]]),
-              lwd = 4,
-              col = '#91b9a499')
+              xlab = 'time [s]',
+              ylab = 'CO2 concentration [ppm]')
+        title (main = paste ('Stem Respiration:', 'tree', sessionData$tree [ifile], 'chamber',
+                             sessionData$chamber [ifile], sessionData$timestamp [ifile]))
+          
+        # plot selected data bounds
+        points (x = dat [[colTime]],
+                y = dat [['CO2.dry']],
+                col  = '#91b9a499',
+                pch  = 19,
+                cex  = 0.9)
+          
+        # add a line for the calculated slope
+        #------------------------------------------------------------------------------------
+        abline (lm (dat [['CO2.dry']] ~ dat [[colTime]]),
+                lwd = 4,
+                col = '#91b9a499')
+      } # end plot condition
     } # end ifile loop
     
     # save the respiration session data for this date time
