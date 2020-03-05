@@ -43,6 +43,23 @@ source ('selectData.R')
 #----------------------------------------------------------------------------------------
 dirPath <- '/media/tim/dataDisk/PlantGrowth/data/respiration/'
 
+
+# read climate data from the Fisher meteorological station 
+#--------------------------------------------------------------------------------------
+if (!exists ('met_HF')) {
+  met_HF <- read_csv (file = url ("http://harvardforest.fas.harvard.edu/sites/harvardforest.fas.harvard.edu/files/data/p00/hf001/hf001-10-15min-m.csv","rb"),
+                      col_types = cols ())
+  met_HF$TIMESTAMP <- as.POSIXct (met_HF$datetime,
+                                  format = '%Y-%m-%dT%H:%M')
+  attr (met_HF$TIMESTAMP, "tzone") <- "EST"
+}
+
+# read soil moisture data from the Barn Tower
+#--------------------------------------------------------------------------------------
+# if (!exists ('soilMoisture_HF')) {
+#   soilMoisture_HF <- read_csv (file = '/home/tim/projects/PlantGrowth/environmentalData/soilMoisture.csv')
+# }
+
 # loop over studies for which to process files
 #----------------------------------------------------------------------------------------
 for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
@@ -75,8 +92,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # sort out meta-data files for now to reduce runtime
     #--------------------------------------------------------------------------------------
-    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M', tz = 'EST') > 
-        as.POSIXct ('20180406', format = '%Y%m%d', tz = 'EST')) {
+    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
       listDir <- listDir [substr (listDir, 1, 1) == 'G']      
     }
     
@@ -99,8 +115,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # filter out only the relevant files for the study
     #--------------------------------------------------------------------------------------
-    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M', tz = 'EST') > 
-        as.POSIXct ('20180406', format = '%Y%m%d', tz = 'EST')) {
+    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
       listDir <- listDir [substr (listDir, 3, 2 + nchar (study)) == study]
     }
     if (length (listDir) == 0) next
@@ -108,8 +123,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     # extract metadata from file name
     #--------------------------------------------------------------------------------------
     tmp <- unlist (strsplit (listDir, '_'))
-    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M', tz = 'EST') > 
-        as.POSIXct ('20180406', format = '%Y%m%d', tz = 'EST')) {
+    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
       datestr <- tmp [seq (3, length (tmp), 4)]
       timestr <- tmp [seq (4, length (tmp), 4)]
       timestr <- substring (timestr, 1, nchar (timestr) - 4)
@@ -130,8 +144,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     } else if (study == 'Exp2018') {
       treeIDs <- as.numeric (substring (listDir, 11, 12))
     } else if (study == 'Exp2017') {
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M', tz = 'EST') > 
-          as.POSIXct ('20180406', format = '%Y%m%d', tz = 'EST')) {
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
         treeIDs <- as.numeric (substring (listDir, 11, 12))
       } else {
         treeIDs <- as.numeric (substring (listDir, 1, 2))
@@ -147,8 +160,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     } else if (study == 'Exp2018') {
       chamberIDs <- as.numeric (substr (listDir, 16, 16))
     }  else if (study == 'Exp2017') {
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M', tz = 'EST') > 
-          as.POSIXct ('20180406', format = '%Y%m%d', tz = 'EST')) {
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
         chamberIDs <- as.numeric (substr (listDir, 16, 16)) 
       } else {
         chamberIDs <- NA
@@ -201,8 +213,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       treatment <- rep (1, length (treeIDs))
       treatment [treeIDs %in% c (2, 4, 6, 7)] <- 5
     } else if (study == 'Exp2017') {
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M', tz = 'EST') > 
-          as.POSIXct ('20180406', format = '%Y%m%d', tz = 'EST')) {
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
         treatment <- as.numeric (substr (listDir, 14, 14))
       } else {
         treatment <- as.numeric (substr (listDir, 4, 4))
@@ -251,20 +262,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
                            H2O.ppt.int = NA, # Internal water vapour pressure from LiCor-840.
                            vwc         = NA) # volumetic soil water content form the barn tower
     
-    # Pull appropriate meterological data from the HF website
-    #--------------------------------------------------------------------------------------
-    if (!exists ('met_HF')) {
-      met_HF <- read_csv (file = url ("http://harvardforest.fas.harvard.edu/sites/harvardforest.fas.harvard.edu/files/data/p00/hf001/hf001-10-15min-m.csv","rb"),
-                          col_types = cols ())
-      met_HF$TIMESTAMP <- as.POSIXct (met_HF$datetime,
-                                      format = '%Y-%m-%dT%H:%M')
-      attr (met_HF$TIMESTAMP, "tzone") <- "EST"
-    }
-    # TR - I should include soil moisture here in the future
-    #--------------------------------------------------------------------------------------
-  
-    
-    # Loop through each measurement in the session 
+    # loop through each measurement in the session 
     #--------------------------------------------------------------------------------------
     for (ifile in  1:nrow (sessionData)) {
       
@@ -275,44 +273,88 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       
       # read in the data file
       #------------------------------------------------------------------------------------
-      measurement <- read_csv (file = currentFile, col_types = cols ())
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
+        measurement <- read_csv (file = currentFile, col_types = cols ())
+      } else {
+        measurement <- read_delim (file = currentFile, delim = ' ', col_types = cols (), 
+                                   skip = 2, col_names = FALSE)
+        measurement <- rename (measurement, time = 1, CO2 = 2, cellTemp = 3, cellPres = 4)
+        # create Seconds column
+        measurement [['Seconds']] <- measurement [['time']] - measurement [['time']] [1]
+      }
       
-      # Determine name of the time column depending on flux puppy version (age of the file)  
+      # determine name of the time column depending on flux puppy version (age of the file) 
+      #------------------------------------------------------------------------------------
       if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-06-07')) {
         colTime <- 'Seconds'
       } else {
         colTime <- 'RunTime'
       }
       
+      # get the actual timestamp from the file, if the file was produced with LiCor software,
+      # and add it to the sessionData
+      #------------------------------------------------------------------------------------
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-04-06')) {
+        timestamp <- as.POSIXct (substr (readLines (currentFile, n = 1), 2, 20),
+                                 format = '%Y-%m-%d at %H:%M', tz = 'EST')
+        sessionData [['timestamp']] [ifile] <- as_datetime (timestamp)
+      }
+      
       # truncate data to select only reasonable values
       #------------------------------------------------------------------------------------
-      PLOT1 <- FALSE
-      condition <- boundaries [['treeID']] == sessionData [['tree']] [ifile] &
-                   boundaries [['chamberID']] == sessionData [['chamber']] [ifile]  
-      dat <- selectData (ds = measurement,
-                         lowerBound = boundaries [['boundary']] [condition & boundaries [['lower']] == TRUE],
-                         upperBound = boundaries [['boundary']] [condition & boundaries [['lower']] == FALSE],
-                         plotB = PLOT1, 
-                         colTime = colTime)
-      if (PLOT1) title (main = paste ('Stem Respiration:', 'tree', sessionData$tree [ifile], 
-                                      'chamber', sessionData$chamber [ifile], 
-                                      sessionData$timestamp [ifile]))
+      PLOT1 <- TRUE
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-04-06')) {
+        # get lower boundary
+        lowerBoundary <- boundaries [['boundary']] [boundaries [['treeID']] == sessionData [['tree']] [ifile] &
+                                                    boundaries [['lower']] == TRUE]
+        # check whether there is data for one or more than one chamber in the file
+        if (length (lowerBoundary) == 1) {
+          # set chamber number to 1
+          sessionData [['chamber']] [ifile] <- 1
+          condition <- boundaries [['treeID']] == sessionData [['tree']] [ifile] &
+                       boundaries [['chamberID']] == sessionData [['chamber']] [ifile]  
+          dat <- selectData (ds = measurement,
+                             lowerBound = boundaries [['boundary']] [condition & boundaries [['lower']] == TRUE],
+                             upperBound = boundaries [['boundary']] [condition & boundaries [['lower']] == FALSE],
+                             plotB = PLOT1, 
+                             colTime = colTime)
+        } else if (length (lowerBoundary > 1)) {
+          # set first chamber number to 1
+          sessionData [['chamber']] [ifile] <- 1
+          # add rows to the tibble for each chamber
+          sessionData <- add_row (sessionData, )
+        } else {
+          print ('Error: there is no lower boundary for this file.')
+        }
+      } else {
+        condition <- boundaries [['treeID']] == sessionData [['tree']] [ifile] &
+                     boundaries [['chamberID']] == sessionData [['chamber']] [ifile]  
+        dat <- selectData (ds = measurement,
+                           lowerBound = boundaries [['boundary']] [condition & boundaries [['lower']] == TRUE],
+                           upperBound = boundaries [['boundary']] [condition & boundaries [['lower']] == FALSE],
+                           plotB = PLOT1, 
+                           colTime = colTime)
+      }
+      # add title to plot
+      if (PLOT1) title (main = paste ('Stem Respiration:', 'tree', sessionData [['tree']] [ifile], 
+                                      'chamber', sessionData [['chamber']] [ifile], 
+                                      as_datetime (sessionData [['timestamp']] [ifile], tz = 'EST')))
       
-      # Find closest 15 minute interval
+      # find closest 15 minute interval
       #------------------------------------------------------------------------------------
       next_interval <- as.POSIXct (x = (round (as.numeric (median (sessionData$timestamp [ifile]))/
                                                  (15 * 60)) * (15 * 60) + (15 * 60)), format = '%Y-%m-%d %H:%M:%S',
                                    origin = as.POSIXct ("1970-01-01", format = '%Y-%m-%d', tz = 'UTC'), 
                                    tz = 'EST')
       
-      # Extract pressure in Pa air temperature in deg C and relative humidity in percent 
+      # extract pressure in Pa air temperature in deg C and relative humidity in percent 
       # from meteorological data
       #------------------------------------------------------------------------------------
       pres.Pa <- met_HF [['bar']]  [met_HF [['TIMESTAMP']] == next_interval & !is.na (met_HF [['TIMESTAMP']])] * 100.0 # Pa
       airt.C  <- met_HF [['airt']] [met_HF [['TIMESTAMP']] == next_interval & !is.na (met_HF [['TIMESTAMP']])]         # deg C
       rh.per  <- met_HF [['rh']]   [met_HF [['TIMESTAMP']] == next_interval & !is.na (met_HF [['TIMESTAMP']])]         # %
       
-      # Calculate saturation water vapour pressure (esat) to convert relative humidity
+      # calculate saturation water vapour pressure (esat) to convert relative humidity
       #------------------------------------------------------------------------------------
       es.Pa <- 0.61078 * exp ((17.269 * airt.C) / (237.3 + airt.C)) * 1000 # saturated water pressure [Pa]
       ea.Pa <- es.Pa * rh.per / 100.0                                         # get actual water vapour pressure [Pa]
@@ -321,36 +363,67 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       dat [['pres.Pa']] <- rep (pres.Pa, dim (dat [, 1]) [1])   # add atmospheric pressure [Pa] to aalldat data.frame
       dat [['H2O.ppt']] <- dat [['ea.Pa']] / (dat [['pres.Pa']] - dat [['ea.Pa']]) * 1.0e3   # add actual water vapour pressure [ppt] to sessiondata data.frame
       
-      # Rename CO2 column
+      # rename CO2 column
       #------------------------------------------------------------------------------------
       names (dat) [which (names (dat) == "CO2")] <- "CO2.ppm"
       
       # Correct CO2 concentration for water vapour 
       #------------------------------------------------------------------------------------
-      dat [['CO2.dry']] <- corrConcDilution (dat, 
-                                             colConc   = 'CO2.ppm',
-                                             colVapour = 'H2O.ppt')
+      dat [['CO2.dry.atm']] <- corrConcDilution (dat, 
+                                                 colConc   = 'CO2.ppm',
+                                                 colVapour = 'H2O.ppt')
+      dat [['CO2.dry.int']] <- corrConcDilution (dat, 
+                                                 colConc   = 'CO2.ppm',
+                                                 colVapour = '???')
       
       # Calculate chamber flux for entire timeseries from corrected 
       #------------------------------------------------------------------------------------
-      suppressWarnings(resFit <- calcClosedChamberFlux (dat,
-                                                        colConc     = 'CO2.dry',
+      suppressWarnings(resFitRaw <- calcClosedChamberFlux (dat,
+                                                           colConc     = 'CO2.ppm',
+                                                           colTime     = colTime, 
+                                                           colTemp     = 'airt.C',
+                                                           colPressure = 'pres.Pa',
+                                                           volume      = chamberGeometry [1],
+                                                           area        = chamberGeometry [2]))
+      
+      # Calculate chamber flux for entire timeseries from atmospherically corrected concentration 
+      #------------------------------------------------------------------------------------
+      suppressWarnings(resFitAtm <- calcClosedChamberFlux (dat,
+                                                        colConc     = 'CO2.dry.atm',
                                                         colTime     = colTime, 
                                                         colTemp     = 'airt.C',
                                                         colPressure = 'pres.Pa',
                                                         volume      = chamberGeometry [1],
                                                         area        = chamberGeometry [2]))
       
+      # Calculate chamber flux for entire timeseries from internally corrected concentration
+      #------------------------------------------------------------------------------------
+      suppressWarnings(resFitInt <- calcClosedChamberFlux (dat,
+                                                           colConc     = 'CO2.dry.int',
+                                                           colTime     = colTime, 
+                                                           colTemp     = 'airt.C',
+                                                           colPressure = 'pres.Pa',
+                                                           volume      = chamberGeometry [1],
+                                                           area        = chamberGeometry [2]))
+      
       # Put all the data into the table 'sessiondata" you created earlier
       #------------------------------------------------------------------------------------
-      sessionData [['flux']]    [ifile] <- resFit [['flux']] # flux is in micromol / s
-      sessionData [['sdFlux']]  [ifile] <- resFit [['sdFlux']]
-      sessionData [['AIC']]     [ifile] <- resFit [['AIC']]
-      sessionData [['r2']]      [ifile] <- resFit [['r2']]
-      sessionData [['ea.Pa']]   [ifile] <- ea.Pa   # add actual water vapour pressure [Pa] to alldata data.frame
-      sessionData [['airt.C']]  [ifile] <- airt.C   # add air temperature [degC] to alldata data.frame
-      sessionData [['pres.Pa']] [ifile] <- pres.Pa   # add atmospheric pressure [Pa] to aalldat data.frame
-      sessionData [['H2O.ppt']] [ifile] <- ea.Pa / (pres.Pa - ea.Pa) * 1.0e3   
+      sessionData [['fluxRaw']]     [ifile] <- resFitRaw [['flux']] # flux is in micromol / s
+      sessionData [['sdFluxRaw']]   [ifile] <- resFitRaw [['sdFlux']]
+      sessionData [['AICRaw']]      [ifile] <- resFitRaw [['AIC']]
+      sessionData [['r2Raw']]       [ifile] <- resFitRaw [['r2']]
+      sessionData [['fluxAtm']]     [ifile] <- resFitAtm [['flux']] # flux is in micromol / s
+      sessionData [['sdFluxAtm']]   [ifile] <- resFitAtm [['sdFlux']]
+      sessionData [['AICAtm']]      [ifile] <- resFitAtm [['AIC']]
+      sessionData [['r2Atm']]       [ifile] <- resFitAtm [['r2']]
+      sessionData [['fluxInt']]     [ifile] <- resFitInt [['flux']] # flux is in micromol / s
+      sessionData [['sdFluxInt']]   [ifile] <- resFitInt [['sdFlux']]
+      sessionData [['AICInt']]      [ifile] <- resFitInt [['AIC']]
+      sessionData [['r2Int']]       [ifile] <- resFitInt [['r2']]
+      sessionData [['ea.Pa']]       [ifile] <- ea.Pa   # add actual water vapour pressure [Pa] to alldata data.frame
+      sessionData [['airt.C']]      [ifile] <- airt.C   # add air temperature [degC] to alldata data.frame
+      sessionData [['pres.Pa']]     [ifile] <- pres.Pa   # add atmospheric pressure [Pa] to aalldat data.frame
+      sessionData [['H2O.ppt.atm']] [ifile] <- ea.Pa / (pres.Pa - ea.Pa) * 1.0e3   
   
       # Plot data, if so desired
       PLOT2 <- FALSE
