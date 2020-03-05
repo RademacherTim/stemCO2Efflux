@@ -75,7 +75,10 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # sort out meta-data files for now to reduce runtime
     #--------------------------------------------------------------------------------------
-    listDir <- listDir [substr (listDir, 1, 1) == 'G']
+    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M', tz = 'EST') > 
+        as.POSIXct ('20180406', format = '%Y%m%d', tz = 'EST')) {
+      listDir <- listDir [substr (listDir, 1, 1) == 'G']      
+    }
     
     # read bounds for each file
     #--------------------------------------------------------------------------------------
@@ -96,19 +99,29 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # filter out only the relevant files for the study
     #--------------------------------------------------------------------------------------
-    listDir <- listDir [substr (listDir, 3, 2 + nchar (study)) == study]
+    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M', tz = 'EST') > 
+        as.POSIXct ('20180406', format = '%Y%m%d', tz = 'EST')) {
+      listDir <- listDir [substr (listDir, 3, 2 + nchar (study)) == study]
+    }
     if (length (listDir) == 0) next
     
     # extract metadata from file name
     #--------------------------------------------------------------------------------------
     tmp <- unlist (strsplit (listDir, '_'))
-    datestr <- tmp [seq (3, length (tmp), 4)]
-    timestr <- tmp [seq (4, length (tmp), 4)]
-    timestr <- substring (timestr, 1, nchar (timestr) - 4)
-    timestamp <- strptime (paste (datestr, timestr),"%Y%m%d %H%M%S", tz = 'EST')
-    rm (tmp, datestr, timestr)
+    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M', tz = 'EST') > 
+        as.POSIXct ('20180406', format = '%Y%m%d', tz = 'EST')) {
+      datestr <- tmp [seq (3, length (tmp), 4)]
+      timestr <- tmp [seq (4, length (tmp), 4)]
+      timestr <- substring (timestr, 1, nchar (timestr) - 4)
+      timestamp <- strptime (paste (datestr, timestr),"%Y%m%d %H%M%S", tz = 'EST')
+      rm (tmp, datestr, timestr)
+    } else {
+      datestr <- substr (tmp [seq (2, length (tmp), 2)], 1, 10)
+      timestamp <- strptime (datestr,"%Y-%m-%d", tz = 'EST')
+      rm (tmp, datestr)
+    }
     
-    # get tree identifiers
+    # Get tree identifiers
     #--------------------------------------------------------------------------------------
     if (study == 'Exp2019') {
       treeIDs <- as.numeric (substring (listDir, 14, 14)) 
@@ -117,7 +130,12 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     } else if (study == 'Exp2018') {
       treeIDs <- as.numeric (substring (listDir, 11, 12))
     } else if (study == 'Exp2017') {
-      treeIDs <- as.numeric (substring (listDir, 11, 12))
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M', tz = 'EST') > 
+          as.POSIXct ('20180406', format = '%Y%m%d', tz = 'EST')) {
+        treeIDs <- as.numeric (substring (listDir, 11, 12))
+      } else {
+        treeIDs <- as.numeric (substring (listDir, 1, 2))
+      }
     }
     
     # get chamber identifiers
@@ -129,7 +147,12 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     } else if (study == 'Exp2018') {
       chamberIDs <- as.numeric (substr (listDir, 16, 16))
     }  else if (study == 'Exp2017') {
-      chamberIDs <- as.numeric (substr (listDir, 16, 16)) # TR - Needs testing
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M', tz = 'EST') > 
+          as.POSIXct ('20180406', format = '%Y%m%d', tz = 'EST')) {
+        chamberIDs <- as.numeric (substr (listDir, 16, 16)) 
+      } else {
+        chamberIDs <- NA
+      }
     } 
     
     # For the Exp2018 the treeIDs changed, here we correct for obsolete treeIDs
@@ -178,7 +201,12 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       treatment <- rep (1, length (treeIDs))
       treatment [treeIDs %in% c (2, 4, 6, 7)] <- 5
     } else if (study == 'Exp2017') {
-      treatment <- 1 # TR - This needs changing!
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M', tz = 'EST') > 
+          as.POSIXct ('20180406', format = '%Y%m%d', tz = 'EST')) {
+        treatment <- as.numeric (substr (listDir, 14, 14))
+      } else {
+        treatment <- as.numeric (substr (listDir, 4, 4))
+      }
     }
     
     # Determine the species of the trees
@@ -196,22 +224,32 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # Put all info together into a tibble
     #--------------------------------------------------------------------------------------
-    sessionData <- tibble (file      = listDir,
-                           study     = study,
-                           treatment = treatment,
-                           tree      = treeIDs,
-                           species   = species,
-                           chamber   = chamberIDs,
-                           timestamp = as.POSIXct (timestamp),
-                           session   = dateTime,
-                           flux      = NA,
-                           sdFlux    = NA, 
-                           ea.Pa     = NA, 
-                           airt.C    = NA, 
-                           pres.Pa   = NA, 
-                           H2O.ppt   = NA,
-                           AIC       = NA,
-                           r2        = NA)
+    sessionData <- tibble (file        = listDir,
+                           study       = study,
+                           treatment   = treatment,
+                           tree        = treeIDs,
+                           species     = species,
+                           chamber     = chamberIDs,
+                           timestamp   = NA, 
+                           session     = dateTime,
+                           fluxRaw     = NA,
+                           sdFluxRaw   = NA,
+                           AICRaw      = NA,
+                           r2Raw       = NA,
+                           fluxAtm     = NA,
+                           sdFluxAtm   = NA,
+                           AICAtm      = NA,
+                           r2Atm       = NA,
+                           fluxInt     = NA,
+                           sdFluxInt   = NA,
+                           AICInt      = NA,
+                           r2Int       = NA,
+                           ea.Pa       = NA, 
+                           airt.C      = NA, 
+                           pres.Pa     = NA, 
+                           H2O.ppt.atm = NA, # Atmospheric water vapour pressure from the Fisher Met Station
+                           H2O.ppt.int = NA, # Internal water vapour pressure from LiCor-840.
+                           vwc         = NA) # volumetic soil water content form the barn tower
     
     # Pull appropriate meterological data from the HF website
     #--------------------------------------------------------------------------------------
@@ -287,14 +325,14 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       #------------------------------------------------------------------------------------
       names (dat) [which (names (dat) == "CO2")] <- "CO2.ppm"
       
-      # Correct CO2 concentration for water vapour
+      # Correct CO2 concentration for water vapour 
       #------------------------------------------------------------------------------------
       dat [['CO2.dry']] <- corrConcDilution (dat, 
                                              colConc   = 'CO2.ppm',
                                              colVapour = 'H2O.ppt')
       
-      # Calculate chamber flux for entire timeseries
-      #------------------------------------------------------------------------------------#
+      # Calculate chamber flux for entire timeseries from corrected 
+      #------------------------------------------------------------------------------------
       suppressWarnings(resFit <- calcClosedChamberFlux (dat,
                                                         colConc     = 'CO2.dry',
                                                         colTime     = colTime, 
@@ -304,7 +342,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
                                                         area        = chamberGeometry [2]))
       
       # Put all the data into the table 'sessiondata" you created earlier
-      #------------------------------------------------------------------------------------#
+      #------------------------------------------------------------------------------------
       sessionData [['flux']]    [ifile] <- resFit [['flux']] # flux is in micromol / s
       sessionData [['sdFlux']]  [ifile] <- resFit [['sdFlux']]
       sessionData [['AIC']]     [ifile] <- resFit [['AIC']]
