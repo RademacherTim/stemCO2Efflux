@@ -80,7 +80,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
   
   # loop over dates
   #----------------------------------------------------------------------------------------
-  for (dateTime in measurementDates) {
+  for (dateTime in measurementDates [1]) {
     
     # now processing 
     #--------------------------------------------------------------------------------------
@@ -241,7 +241,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
                            tree        = treeIDs,
                            species     = species,
                            chamber     = chamberIDs,
-                           timestamp   = NA, 
+                           timestamp   = ifelse (timestamp > as.POSIXct ('2018-04-06'), timestamp, NA), 
                            session     = dateTime,
                            fluxRaw     = NA,
                            sdFluxRaw   = NA,
@@ -269,7 +269,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       # assign each of the files to a general variable "currentfile"
       #------------------------------------------------------------------------------------
       currentFile <- sprintf ('%sraw/%s/%s/%s', dirPath, study, dateTime, 
-                              sessionData$file [ifile])
+                              sessionData [['file']] [ifile])
       
       # read in the data file
       #------------------------------------------------------------------------------------
@@ -280,7 +280,8 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
                                    skip = 2, col_names = FALSE)
         measurement <- rename (measurement, time = 1, CO2 = 2, cellTemp = 3, cellPres = 4)
         # create Seconds column
-        measurement [['Seconds']] <- measurement [['time']] - measurement [['time']] [1]
+        measurement [['Seconds']] <- as.numeric (measurement [['time']] - 
+                                                 measurement [['time']] [1])
       }
       
       # determine name of the time column depending on flux puppy version (age of the file) 
@@ -291,25 +292,37 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
         colTime <- 'RunTime'
       }
       
+      # select only columns of interest
+      #------------------------------------------------------------------------------------
+      if ('H2O' %in% colnames (measurement)) {
+        measurement <- measurement %>% select (colTime, CO2, H2O) %>% rename (H2OInt = H2O) 
+      } else {
+        measurement <- select (measurement, colTime, CO2)
+      }    
+
       # get the actual timestamp from the file, if the file was produced with LiCor software,
       # and add it to the sessionData
       #------------------------------------------------------------------------------------
       if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-04-06')) {
         timestamp <- as.POSIXct (substr (readLines (currentFile, n = 1), 2, 20),
                                  format = '%Y-%m-%d at %H:%M', tz = 'EST')
-        sessionData [['timestamp']] [ifile] <- as_datetime (timestamp)
+        sessionData [['timestamp']] [ifile] <- with_tz (as_datetime (timestamp), tz = 'EST')
+        sessionData <- sessionData %>% hablar::convert (dtm (timestamp)) %>% with_tz (tz = 'EST')
       }
       
       # truncate data to select only reasonable values
-      #------------------------------------------------------------------------------------
+      #----------------------------------------------------------------------------------
       PLOT1 <- TRUE
       if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-04-06')) {
         # get lower boundary
+        #--------------------------------------------------------------------------------
         lowerBoundary <- boundaries [['boundary']] [boundaries [['treeID']] == sessionData [['tree']] [ifile] &
                                                     boundaries [['lower']] == TRUE]
         # check whether there is data for one or more than one chamber in the file
+        #--------------------------------------------------------------------------------
         if (length (lowerBoundary) == 1) {
           # set chamber number to 1
+          #------------------------------------------------------------------------------
           sessionData [['chamber']] [ifile] <- 1
           condition <- boundaries [['treeID']] == sessionData [['tree']] [ifile] &
                        boundaries [['chamberID']] == sessionData [['chamber']] [ifile]  
@@ -318,11 +331,23 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
                              upperBound = boundaries [['boundary']] [condition & boundaries [['lower']] == FALSE],
                              plotB = PLOT1, 
                              colTime = colTime)
-        } else if (length (lowerBoundary > 1)) {
+        } else if (length (lowerBoundary) > 1) {
           # set first chamber number to 1
+          #------------------------------------------------------------------------------
           sessionData [['chamber']] [ifile] <- 1
           # add rows to the tibble for each chamber
-          sessionData <- add_row (sessionData, )
+          #------------------------------------------------------------------------------
+          for (i in 2:length (lowerBoundary)) {
+            sessionData <- add_row (sessionData, file = listDir [ifile], study = study, 
+                                    treatment = treatment [ifile], tree = treeIDs [ifile], 
+                                    species = species, chamber = i, timestamp = timestamp, 
+                                    session = dateTime, fluxRaw = NA, sdFluxRaw = NA, 
+                                    AICRaw = NA, r2Raw = NA, fluxAtm = NA, sdFluxAtm = NA, 
+                                    AICAtm = NA, r2Atm = NA, fluxInt = NA, sdFluxInt = NA, 
+                                    AICInt = NA, r2Int = NA, ea.Pa = NA, airt.C = NA, 
+                                    pres.Pa = NA, H2O.ppt.atm = NA, H2O.ppt.int = NA, 
+                                    vwc = NA)
+          }
         } else {
           print ('Error: there is no lower boundary for this file.')
         }
@@ -342,7 +367,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       
       # find closest 15 minute interval
       #------------------------------------------------------------------------------------
-      next_interval <- as.POSIXct (x = (round (as.numeric (median (sessionData$timestamp [ifile]))/
+      next_interval <- as.POSIXct (x = (round (as.numeric (median (sessionData [['timestamp']] [ifile]))/
                                                  (15 * 60)) * (15 * 60) + (15 * 60)), format = '%Y-%m-%d %H:%M:%S',
                                    origin = as.POSIXct ("1970-01-01", format = '%Y-%m-%d', tz = 'UTC'), 
                                    tz = 'EST')
@@ -367,16 +392,21 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       #------------------------------------------------------------------------------------
       names (dat) [which (names (dat) == "CO2")] <- "CO2.ppm"
       
-      # Correct CO2 concentration for water vapour 
+      # correct CO2 concentration for atmospheric water vapour concentration 
       #------------------------------------------------------------------------------------
       dat [['CO2.dry.atm']] <- corrConcDilution (dat, 
                                                  colConc   = 'CO2.ppm',
                                                  colVapour = 'H2O.ppt')
-      dat [['CO2.dry.int']] <- corrConcDilution (dat, 
-                                                 colConc   = 'CO2.ppm',
-                                                 colVapour = '???')
+      # correct CO2 concentration for internal water vapour concentration of the LiCor-840
+      #------------------------------------------------------------------------------------
+      if ('H2OInt' %in% colnames (dat)) {
+        dat [['CO2.dry.int']] <- corrConcDilution (dat, 
+                                                   colConc   = 'CO2.ppm',
+                                                   colVapour = 'H2OInt')
+
+      }
       
-      # Calculate chamber flux for entire timeseries from corrected 
+      # calculate chamber flux for entire timeseries from corrected 
       #------------------------------------------------------------------------------------
       suppressWarnings(resFitRaw <- calcClosedChamberFlux (dat,
                                                            colConc     = 'CO2.ppm',
@@ -398,15 +428,19 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       
       # Calculate chamber flux for entire timeseries from internally corrected concentration
       #------------------------------------------------------------------------------------
-      suppressWarnings(resFitInt <- calcClosedChamberFlux (dat,
-                                                           colConc     = 'CO2.dry.int',
-                                                           colTime     = colTime, 
-                                                           colTemp     = 'airt.C',
-                                                           colPressure = 'pres.Pa',
-                                                           volume      = chamberGeometry [1],
-                                                           area        = chamberGeometry [2]))
+      if ('H2OInt' %in% colnames (dat)) {
+        suppressWarnings(resFitInt <- calcClosedChamberFlux (dat,
+                                                             colConc     = 'CO2.dry.int',
+                                                             colTime     = colTime, 
+                                                             colTemp     = 'airt.C',
+                                                             colPressure = 'pres.Pa',
+                                                             volume      = chamberGeometry [1],
+                                                             area        = chamberGeometry [2]))
+      } else {
+        resFitInt <- tibble (flux = NA, sdFlux = NA, AIC = NA, r2 = NA)
+      }
       
-      # Put all the data into the table 'sessiondata" you created earlier
+      # put all the data into the table 'sessiondata" you created earlier
       #------------------------------------------------------------------------------------
       sessionData [['fluxRaw']]     [ifile] <- resFitRaw [['flux']] # flux is in micromol / s
       sessionData [['sdFluxRaw']]   [ifile] <- resFitRaw [['sdFlux']]
@@ -426,26 +460,27 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       sessionData [['H2O.ppt.atm']] [ifile] <- ea.Pa / (pres.Pa - ea.Pa) * 1.0e3   
   
       # Plot data, if so desired
-      PLOT2 <- FALSE
+      PLOT2 <- TRUE
       if (PLOT2) {
         par (mfrow = c (1, 1))
         plot (x = dat [[colTime]], 
-              y = dat [['CO2.dry']],
+              y = dat [['CO2.ppm']],
               xlab = 'time [s]',
               ylab = 'CO2 concentration [ppm]')
-        title (main = paste ('Stem Respiration:', 'tree', sessionData$tree [ifile], 'chamber',
-                             sessionData$chamber [ifile], sessionData$timestamp [ifile]))
+        title (main = paste ('Stem Respiration:', 'tree', sessionData [['tree']] [ifile], 'chamber',
+                             sessionData [['chamber']] [ifile], 
+                             as_datetime (sessionData [['timestamp']] [ifile])))
           
         # plot selected data bounds
         points (x = dat [[colTime]],
-                y = dat [['CO2.dry']],
+                y = dat [['CO2.ppm']],
                 col  = '#91b9a499',
                 pch  = 19,
                 cex  = 0.9)
           
         # add a line for the calculated slope
         #------------------------------------------------------------------------------------
-        abline (lm (dat [['CO2.dry']] ~ dat [[colTime]]),
+        abline (lm (dat [['CO2.ppm']] ~ dat [[colTime]]),
                 lwd = 4,
                 col = '#91b9a499')
       } # end plot condition
