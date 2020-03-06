@@ -153,18 +153,13 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # get chamber identifiers
     #--------------------------------------------------------------------------------------
-    if (study == 'Exp2019') {
-      chamberIDs <- as.numeric (substring (listDir, 16, 16))
-    } else if (study == 'Obs2018' | study == 'Obs2019') {
+    if (study == 'Obs2018' | study == 'Obs2019') {
       chamberIDs <- rep (1, length (treeIDs))
-    } else if (study == 'Exp2018') {
+    } else if (study == 'Exp2019' | study == 'Exp2018' | 
+      (study == 'Exp2017' & as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06'))) {
       chamberIDs <- as.numeric (substr (listDir, 16, 16))
     }  else if (study == 'Exp2017') {
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
-        chamberIDs <- as.numeric (substr (listDir, 16, 16)) 
-      } else {
-        chamberIDs <- NA
-      }
+        chamberIDs <- as.numeric (substr (listDir, 6, 6))
     } 
     
     # For the Exp2018 the treeIDs changed, here we correct for obsolete treeIDs
@@ -300,66 +295,35 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
         measurement <- select (measurement, colTime, CO2)
       }    
 
+      # get lower boundary to adjust hte timestamp
+      #------------------------------------------------------------------------------------
+      lowerBoundary <- boundaries [['boundary']] [condition & boundaries [['lower']] == TRUE]
+      
       # get the actual timestamp from the file, if the file was produced with LiCor software,
       # and add it to the sessionData
       #------------------------------------------------------------------------------------
       if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-04-06')) {
         timestamp <- as.POSIXct (substr (readLines (currentFile, n = 1), 2, 20),
                                  format = '%Y-%m-%d at %H:%M', tz = 'EST')
-        sessionData [['timestamp']] [ifile] <- with_tz (as_datetime (timestamp), tz = 'EST')
-        sessionData <- sessionData %>% hablar::convert (dtm (timestamp)) %>% with_tz (tz = 'EST')
+        sessionData [['timestamp']] [ifile] <- with_tz (as_datetime (timestamp) + 
+                                                        lowerBoundary, 
+                                                        tz = 'EST')
+        sessionData <- sessionData %>% hablar::convert (dtm (timestamp) + lowerBoundary) %>% 
+                       with_tz (tz = 'EST')
+      } else {
+        sessionData [['timestamp']] [ifile] <- sessionData [['timestamp']] [ifile] + lowerBoundary
       }
       
       # truncate data to select only reasonable values
       #----------------------------------------------------------------------------------
       PLOT1 <- TRUE
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-04-06')) {
-        # get lower boundary
-        #--------------------------------------------------------------------------------
-        lowerBoundary <- boundaries [['boundary']] [boundaries [['treeID']] == sessionData [['tree']] [ifile] &
-                                                    boundaries [['lower']] == TRUE]
-        # check whether there is data for one or more than one chamber in the file
-        #--------------------------------------------------------------------------------
-        if (length (lowerBoundary) == 1) {
-          # set chamber number to 1
-          #------------------------------------------------------------------------------
-          sessionData [['chamber']] [ifile] <- 1
-          condition <- boundaries [['treeID']] == sessionData [['tree']] [ifile] &
-                       boundaries [['chamberID']] == sessionData [['chamber']] [ifile]  
-          dat <- selectData (ds = measurement,
-                             lowerBound = boundaries [['boundary']] [condition & boundaries [['lower']] == TRUE],
-                             upperBound = boundaries [['boundary']] [condition & boundaries [['lower']] == FALSE],
-                             plotB = PLOT1, 
-                             colTime = colTime)
-        } else if (length (lowerBoundary) > 1) {
-          # set first chamber number to 1
-          #------------------------------------------------------------------------------
-          sessionData [['chamber']] [ifile] <- 1
-          # add rows to the tibble for each chamber
-          #------------------------------------------------------------------------------
-          for (i in 2:length (lowerBoundary)) {
-            sessionData <- add_row (sessionData, file = listDir [ifile], study = study, 
-                                    treatment = treatment [ifile], tree = treeIDs [ifile], 
-                                    species = species, chamber = i, timestamp = timestamp, 
-                                    session = dateTime, fluxRaw = NA, sdFluxRaw = NA, 
-                                    AICRaw = NA, r2Raw = NA, fluxAtm = NA, sdFluxAtm = NA, 
-                                    AICAtm = NA, r2Atm = NA, fluxInt = NA, sdFluxInt = NA, 
-                                    AICInt = NA, r2Int = NA, ea.Pa = NA, airt.C = NA, 
-                                    pres.Pa = NA, H2O.ppt.atm = NA, H2O.ppt.int = NA, 
-                                    vwc = NA)
-          }
-        } else {
-          print ('Error: there is no lower boundary for this file.')
-        }
-      } else {
-        condition <- boundaries [['treeID']] == sessionData [['tree']] [ifile] &
-                     boundaries [['chamberID']] == sessionData [['chamber']] [ifile]  
-        dat <- selectData (ds = measurement,
-                           lowerBound = boundaries [['boundary']] [condition & boundaries [['lower']] == TRUE],
-                           upperBound = boundaries [['boundary']] [condition & boundaries [['lower']] == FALSE],
-                           plotB = PLOT1, 
-                           colTime = colTime)
-      }
+      condition <- boundaries [['treeID']] == sessionData [['tree']] [ifile] &
+                   boundaries [['chamberID']] == sessionData [['chamber']] [ifile]  
+      dat <- selectData (ds = measurement,
+                         lowerBound = boundaries [['boundary']] [condition & boundaries [['lower']] == TRUE],
+                         upperBound = boundaries [['boundary']] [condition & boundaries [['lower']] == FALSE],
+                         plotB = PLOT1, 
+                         colTime = colTime)
       # add title to plot
       if (PLOT1) title (main = paste ('Stem Respiration:', 'tree', sessionData [['tree']] [ifile], 
                                       'chamber', sessionData [['chamber']] [ifile], 
