@@ -80,7 +80,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
   
   # loop over dates
   #----------------------------------------------------------------------------------------
-  for (dateTime in measurementDates [1]) {
+  for (dateTime in measurementDates [3]) {
     
     # now processing 
     #--------------------------------------------------------------------------------------
@@ -297,7 +297,10 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
 
       # get lower boundary to adjust hte timestamp
       #------------------------------------------------------------------------------------
-      lowerBoundary <- boundaries [['boundary']] [condition & boundaries [['lower']] == TRUE]
+      condition <- boundaries [['treeID']]    == sessionData [['tree']]    [ifile] &
+                   boundaries [['chamberID']] == sessionData [['chamber']] [ifile] &
+                   boundaries [['lower']]     == TRUE
+      lowerBoundary <- boundaries [['boundary']] [condition]
       
       # get the actual timestamp from the file, if the file was produced with LiCor software,
       # and add it to the sessionData
@@ -308,7 +311,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
         sessionData [['timestamp']] [ifile] <- with_tz (as_datetime (timestamp) + 
                                                         lowerBoundary, 
                                                         tz = 'EST')
-        sessionData <- sessionData %>% hablar::convert (dtm (timestamp) + lowerBoundary) %>% 
+        sessionData <- sessionData %>% hablar::convert (dtm (timestamp)) %>% 
                        with_tz (tz = 'EST')
       } else {
         sessionData [['timestamp']] [ifile] <- sessionData [['timestamp']] [ifile] + lowerBoundary
