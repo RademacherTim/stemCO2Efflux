@@ -80,7 +80,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
   
   # loop over dates
   #----------------------------------------------------------------------------------------
-  for (dateTime in measurementDates [3]) {
+  for (dateTime in measurementDates [16]) {
     
     # now processing 
     #--------------------------------------------------------------------------------------
@@ -188,7 +188,9 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       h1 <- 0.0762
     } else if (study == 'Exp2018') {
       # tree number 5, 8, 9, 14, 15  
-      h1 <- c (rep (0.1016, 12), rep (0.0762, 3), rep (0.1016, 6), rep (0.0762, 6), rep (0.1016, 12), rep (0.762, 6)) 
+      h1 <- treeIDs 
+      h1 [h1 %in% c (5, 8, 9, 14, 15)] <- 0.0762 
+      h1 [h1 != 0.0762] <- 0.1016
     } else {
       h1 <- 0.1016
     }
@@ -230,32 +232,35 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # Put all info together into a tibble
     #--------------------------------------------------------------------------------------
-    sessionData <- tibble (file        = listDir,
-                           study       = study,
-                           treatment   = treatment,
-                           tree        = treeIDs,
-                           species     = species,
-                           chamber     = chamberIDs,
-                           timestamp   = ifelse (timestamp > as.POSIXct ('2018-04-06'), timestamp, NA), 
-                           session     = dateTime,
-                           fluxRaw     = NA,
-                           sdFluxRaw   = NA,
-                           AICRaw      = NA,
-                           r2Raw       = NA,
-                           fluxAtm     = NA,
-                           sdFluxAtm   = NA,
-                           AICAtm      = NA,
-                           r2Atm       = NA,
-                           fluxInt     = NA,
-                           sdFluxInt   = NA,
-                           AICInt      = NA,
-                           r2Int       = NA,
-                           ea.Pa       = NA, 
-                           airt.C      = NA, 
-                           pres.Pa     = NA, 
-                           H2O.ppt.atm = NA, # Atmospheric water vapour pressure from the Fisher Met Station
-                           H2O.ppt.int = NA, # Internal water vapour pressure from LiCor-840.
-                           vwc         = NA) # volumetic soil water content form the barn tower
+    sessionData <- tibble (file          = listDir,
+                           study         = study,
+                           treatment     = treatment,
+                           tree          = treeIDs,
+                           species       = species,
+                           chamber       = chamberIDs,
+                           chamberVolume = as.numeric (chamberGeometry [1:(length (chamberGeometry) - 1)]),
+                           chamberArea   = chamberGeometry [[length (chamberGeometry)]],
+                           timestamp     = ifelse (timestamp > as.POSIXct ('2018-04-06'), 
+                                                   timestamp, NA), 
+                           session       = dateTime,
+                           fluxRaw       = NA,
+                           sdFluxRaw     = NA,
+                           AICRaw        = NA,
+                           r2Raw         = NA,
+                           fluxAtm       = NA,
+                           sdFluxAtm     = NA,
+                           AICAtm        = NA,
+                           r2Atm         = NA,
+                           fluxInt       = NA,
+                           sdFluxInt     = NA,
+                           AICInt        = NA,
+                           r2Int         = NA,
+                           ea.Pa         = NA, 
+                           airt.C        = NA, 
+                           pres.Pa       = NA, 
+                           H2O.ppt.atm   = NA, # Atmospheric water vapour pressure from the Fisher Met Station
+                           H2O.ppt.int   = NA, # Internal water vapour pressure from LiCor-840.
+                           vwc           = NA) # volumetic soil water content form the barn tower
     
     # loop through each measurement in the session 
     #--------------------------------------------------------------------------------------
@@ -373,6 +378,12 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
 
       }
       
+      
+      # determine volume and area of the chamber
+      #------------------------------------------------------------------------------------
+      chamberVolume <- sessionData [['chamberVolume']] [ifile]
+      chamberArea   <- sessionData [['respArea']]      [ifile]
+      
       # calculate chamber flux for entire timeseries from corrected 
       #------------------------------------------------------------------------------------
       suppressWarnings(resFitRaw <- calcClosedChamberFlux (dat,
@@ -380,18 +391,18 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
                                                            colTime     = colTime, 
                                                            colTemp     = 'airt.C',
                                                            colPressure = 'pres.Pa',
-                                                           volume      = chamberGeometry [1],
-                                                           area        = chamberGeometry [2]))
+                                                           volume      = chamberVolume,
+                                                           area        = chamberArea))
       
       # Calculate chamber flux for entire timeseries from atmospherically corrected concentration 
       #------------------------------------------------------------------------------------
       suppressWarnings(resFitAtm <- calcClosedChamberFlux (dat,
-                                                        colConc     = 'CO2.dry.atm',
-                                                        colTime     = colTime, 
-                                                        colTemp     = 'airt.C',
-                                                        colPressure = 'pres.Pa',
-                                                        volume      = chamberGeometry [1],
-                                                        area        = chamberGeometry [2]))
+                                                           colConc     = 'CO2.dry.atm',
+                                                           colTime     = colTime, 
+                                                           colTemp     = 'airt.C',
+                                                           colPressure = 'pres.Pa',
+                                                           volume      = chamberVolume,
+                                                           area        = chamberArea))
       
       # Calculate chamber flux for entire timeseries from internally corrected concentration
       #------------------------------------------------------------------------------------
@@ -401,8 +412,8 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
                                                              colTime     = colTime, 
                                                              colTemp     = 'airt.C',
                                                              colPressure = 'pres.Pa',
-                                                             volume      = chamberGeometry [1],
-                                                             area        = chamberGeometry [2]))
+                                                             volume      = chamberVolume,
+                                                             area        = chamberArea))
       } else {
         resFitInt <- tibble (flux = NA, sdFlux = NA, AIC = NA, r2 = NA)
       }
@@ -429,6 +440,8 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       # Plot data, if so desired
       PLOT2 <- TRUE
       if (PLOT2) {
+        png (paste0 ('./selectDataGraphs/selectedData_',study,'_',dateTime,'_',sessionData [['tree']] [ifile],'_',
+                     sessionData [['chamber']] [ifile],'.png'))
         par (mfrow = c (1, 1))
         plot (x = dat [[colTime]], 
               y = dat [['CO2.ppm']],
@@ -450,6 +463,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
         abline (lm (dat [['CO2.ppm']] ~ dat [[colTime]]),
                 lwd = 4,
                 col = '#91b9a499')
+        dev.off ()
       } # end plot condition
     } # end ifile loop
     
