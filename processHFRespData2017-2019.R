@@ -78,12 +78,12 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
   # get list of all dates for a study
   #----------------------------------------------------------------------------------------
   if (machine == 'timNAU') {
-    tmp <- list.dirs (paste0 (dirPath,'raw/',study,'/'))
+    tmp <- list.dirs (paste0 (dirPath,'raw/',study,'/'), full.names = FALSE, 
+                      recursive = FALSE)
   } else if (machine == 'timPersonal') {
-    tmp <- list.dirs (paste0 (dirPath,study,'/'))
+    tmp <- list.dirs (paste0 (dirPath,study,'/'), full.names = FALSE, recursive = FALSE)
   }
-  tmp <- substr (tmp, nchar (tmp) - 12, nchar (tmp))
-  tmp <- tmp [-1]
+  tmp <- tmp [tmp != 'originalOldFormatRawData']
   
   # Sort out old format
   #----------------------------------------------------------------------------------------
@@ -103,6 +103,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # list all respiration files measured at the same date and time
     #--------------------------------------------------------------------------------------
+    rm (listDir)
     if (machine == 'timNAU') {
       listDir <- list.files (paste0 (dirPath,'raw/',study,'/',dateTime,'/'))
     } else if (machine == 'timPersonal') {
@@ -502,10 +503,13 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # save the respiration session data for this date time
     #--------------------------------------------------------------------------------------
-    # saveRDS (sessionData, file = paste0 (dirPath, 'processed/',study,'/',dateTime,
-    #                                      '_sessionData.rds'))
-    saveRDS (sessionData, file = paste0 (dirPath,study,'/',dateTime,
-                                         '_sessionData.rds'))
+    if (machine == 'timNAU') {
+      saveRDS (sessionData, file = paste0 (dirPath, 'processed/',study,'/',dateTime,
+                                           '_sessionData.rds'))
+    } else if (machine == 'timPersonal') {
+      saveRDS (sessionData, file = paste0 (dirPath,study,'/',dateTime,
+                                           '_sessionData.rds'))
+    }
   } # end measurement dates loop
 } # end study loop
 #========================================================================================
