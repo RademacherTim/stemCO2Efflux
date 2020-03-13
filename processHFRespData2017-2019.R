@@ -20,15 +20,14 @@
 #
 #----------------------------------------------------------------------------------------
 
-# TR - To-do: - Integrate soil moisture read-outs
-#             - Process the really old data format
-#             - Check whether the measurement is from Li-840 and use the actually 
-#               measured water vapour pressure
+# TR - To-do: - Integrate soil moisture at higher temporal resolution form Barn_Table.dat 
 #             - Process soil respiration measurements
 
 # load dependencies
 #----------------------------------------------------------------------------------------
 library ('tidyverse')
+library ('lubridate')
+library ('hablar')
 
 # load source preprocess data (including chamber volume and bounds, plotting function)
 #----------------------------------------------------------------------------------------
@@ -39,16 +38,27 @@ res <- sapply (sprintf ('./RespChamberProc/R/%s', fileNames), source); rm (res)
 #----------------------------------------------------------------------------------------
 source ('selectData.R')
 
+# determine which machine you are on
+#----------------------------------------------------------------------------------------
+machine <- 'timNAU'
+
 # set path to the data directory
 #----------------------------------------------------------------------------------------
-dirPath <- '/media/tim/dataDisk/PlantGrowth/data/respiration/'
-
+if (machine == 'timNAU') {
+  dirPath <- '/media/tim/dataDisk/PlantGrowth/data/respiration/'
+} else if (machine == 'timPersonal') {
+  dirPath <- '../data/'
+}
 
 # read climate data from the Fisher meteorological station 
 #--------------------------------------------------------------------------------------
 if (!exists ('met_HF')) {
-  met_HF <- read_csv (file = url ("http://harvardforest.fas.harvard.edu/sites/harvardforest.fas.harvard.edu/files/data/p00/hf001/hf001-10-15min-m.csv","rb"),
-                      col_types = cols ())
+  if (machine == 'timNAU') {
+    met_HF <- read_csv (file = url ("http://harvardforest.fas.harvard.edu/sites/harvardforest.fas.harvard.edu/files/data/p00/hf001/hf001-10-15min-m.csv","rb"),
+                        col_types = cols ())
+  } else if (machine == 'timPersonal') {
+    met_HF <- read_csv (file = '../data/respiration/hf001-10-15min-m.csv', col_types = cols ())
+  }
   met_HF$TIMESTAMP <- as.POSIXct (met_HF$datetime,
                                   format = '%Y-%m-%dT%H:%M')
   attr (met_HF$TIMESTAMP, "tzone") <- "EST"
@@ -56,9 +66,10 @@ if (!exists ('met_HF')) {
 
 # read soil moisture data from the Barn Tower
 #--------------------------------------------------------------------------------------
-# if (!exists ('soilMoisture_HF')) {
-#   soilMoisture_HF <- read_csv (file = '/home/tim/projects/PlantGrowth/environmentalData/soilMoisture.csv')
-# }
+if (!exists ('soilMoisture_HF')) {
+  soilMoisture_HF <- read_csv (file = '/home/tim/projects/PlantGrowth/data/environmentalData/soilMoisture/soilMoisture.csv',
+                               col_types = cols ())
+}
 
 # loop over studies for which to process files
 #----------------------------------------------------------------------------------------
@@ -66,7 +77,11 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
   
   # get list of all dates for a study
   #----------------------------------------------------------------------------------------
-  tmp <- list.dirs (paste0 (dirPath,'raw/',study,'/'))
+  if (machine == 'timNAU') {
+    tmp <- list.dirs (paste0 (dirPath,'raw/',study,'/'))
+  } else if (machine == 'timPersonal') {
+    tmp <- list.dirs (paste0 (dirPath,study,'/'))
+  }
   tmp <- substr (tmp, nchar (tmp) - 12, nchar (tmp))
   tmp <- tmp [-1]
   
@@ -80,7 +95,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
   
   # loop over dates
   #----------------------------------------------------------------------------------------
-  for (dateTime in measurementDates [16]) {
+  for (dateTime in measurementDates) {
     
     # now processing 
     #--------------------------------------------------------------------------------------
@@ -88,8 +103,11 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # list all respiration files measured at the same date and time
     #--------------------------------------------------------------------------------------
-    listDir <- list.files (paste0 (dirPath,'raw/',study,'/',dateTime,'/'))
-    
+    if (machine == 'timNAU') {
+      listDir <- list.files (paste0 (dirPath,'raw/',study,'/',dateTime,'/'))
+    } else if (machine == 'timPersonal') {
+      listDir <- list.files (paste0 (dirPath,study,'/',dateTime,'/'))
+    }
     # sort out meta-data files for now to reduce runtime
     #--------------------------------------------------------------------------------------
     if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
@@ -98,8 +116,13 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # read bounds for each file
     #--------------------------------------------------------------------------------------
-    bounds <- read_csv (file = paste0 (dirPath,'raw/',study,'/StemResp',study,'-bounds.csv'),
-                        col_types = cols ())
+    if (machine == 'timNAU'){
+      bounds <- read_csv (file = paste0 (dirPath,'raw/',study,'/StemResp',study,'-bounds.csv'),
+                          col_types = cols ())
+    } else if (machine == 'timPersonal') {
+      bounds <- read_csv (file = paste0 (dirPath,study,'/StemResp',study,'-bounds.csv'),
+                          col_types = cols ())
+    }
     bounds <- bounds [bounds [['TIMESTAMP']] == dateTime, ]
     if (substr (study, 1, 3) == 'Exp') {
       boundaries <- tibble (boundary = as.numeric (bounds [2:dim (bounds) [2]]),
@@ -230,6 +253,10 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       species <- 'Acer rubrum'
     }
     
+    # decide on timestamp
+    #--------------------------------------------------------------------------------------
+    tmp <- if (unique (timestamp > as.POSIXct ('2018-04-06'))) timestamp else NA
+    
     # Put all info together into a tibble
     #--------------------------------------------------------------------------------------
     sessionData <- tibble (file          = listDir,
@@ -240,8 +267,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
                            chamber       = chamberIDs,
                            chamberVolume = as.numeric (chamberGeometry [1:(length (chamberGeometry) - 1)]),
                            chamberArea   = chamberGeometry [[length (chamberGeometry)]],
-                           timestamp     = ifelse (timestamp > as.POSIXct ('2018-04-06'), 
-                                                   timestamp, NA), 
+                           timestamp     = as.POSIXct (tmp), 
                            session       = dateTime,
                            fluxRaw       = NA,
                            sdFluxRaw     = NA,
@@ -268,8 +294,13 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       
       # assign each of the files to a general variable "currentfile"
       #------------------------------------------------------------------------------------
-      currentFile <- sprintf ('%sraw/%s/%s/%s', dirPath, study, dateTime, 
-                              sessionData [['file']] [ifile])
+      if (machine == 'timNAU'){
+        currentFile <- sprintf ('%sraw/%s/%s/%s', dirPath, study, dateTime,
+                                sessionData [['file']] [ifile])
+      } else if (machine == 'timPersonal') {
+        currentFile <- sprintf ('%s%s/%s/%s', dirPath, study, dateTime,
+                                sessionData [['file']] [ifile])
+      }
       
       # read in the data file
       #------------------------------------------------------------------------------------
@@ -311,13 +342,14 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       # and add it to the sessionData
       #------------------------------------------------------------------------------------
       if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-04-06')) {
-        timestamp <- as.POSIXct (substr (readLines (currentFile, n = 1), 2, 20),
-                                 format = '%Y-%m-%d at %H:%M', tz = 'EST')
-        sessionData [['timestamp']] [ifile] <- with_tz (as_datetime (timestamp) + 
-                                                        lowerBoundary, 
+        temp <- as.POSIXct (substr (readLines (currentFile, n = 1), 2, 20),
+                            format = '%Y-%m-%d at %H:%M', tz = 'EST')
+        sessionData [['timestamp']] [ifile] <- with_tz (as_datetime (temp + 
+                                                                     lowerBoundary), 
                                                         tz = 'EST')
-        sessionData <- sessionData %>% hablar::convert (dtm (timestamp)) %>% 
-                       with_tz (tz = 'EST')
+        # sessionData <- sessionData %>% 
+        #                hablar::convert (dtm (timestamp)) %>%
+        #                with_tz (tz = 'EST')
       } else {
         sessionData [['timestamp']] [ifile] <- sessionData [['timestamp']] [ifile] + lowerBoundary
       }
@@ -382,7 +414,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       # determine volume and area of the chamber
       #------------------------------------------------------------------------------------
       chamberVolume <- sessionData [['chamberVolume']] [ifile]
-      chamberArea   <- sessionData [['respArea']]      [ifile]
+      chamberArea   <- sessionData [['chamberArea']]   [ifile]
       
       # calculate chamber flux for entire timeseries from corrected 
       #------------------------------------------------------------------------------------
@@ -436,7 +468,8 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       sessionData [['airt.C']]      [ifile] <- airt.C   # add air temperature [degC] to alldata data.frame
       sessionData [['pres.Pa']]     [ifile] <- pres.Pa   # add atmospheric pressure [Pa] to aalldat data.frame
       sessionData [['H2O.ppt.atm']] [ifile] <- ea.Pa / (pres.Pa - ea.Pa) * 1.0e3   
-  
+      sessionData [['vwc']]         [ifile] <- soilMoisture_HF [['vwc']] [date (soilMoisture_HF [['day']]) == 
+                                                                          date (sessionData [['timestamp']] [ifile])]
       # Plot data, if so desired
       PLOT2 <- TRUE
       if (PLOT2) {
@@ -469,7 +502,9 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # save the respiration session data for this date time
     #--------------------------------------------------------------------------------------
-    saveRDS (sessionData, file = paste0 (dirPath, 'processed/',study,'/',dateTime,
+    # saveRDS (sessionData, file = paste0 (dirPath, 'processed/',study,'/',dateTime,
+    #                                      '_sessionData.rds'))
+    saveRDS (sessionData, file = paste0 (dirPath,study,'/',dateTime,
                                          '_sessionData.rds'))
   } # end measurement dates loop
 } # end study loop
