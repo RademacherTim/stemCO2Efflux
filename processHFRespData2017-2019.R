@@ -20,8 +20,7 @@
 #
 #----------------------------------------------------------------------------------------
 
-# TR - To-do: - Integrate soil moisture at higher temporal resolution form Barn_Table.dat 
-#             - Process soil respiration measurements
+# TR - To-do: - Process soil respiration measurements
 
 # load dependencies
 #----------------------------------------------------------------------------------------
@@ -54,8 +53,7 @@ if (machine == 'timNAU') {
 #--------------------------------------------------------------------------------------
 if (!exists ('met_HF')) {
   if (machine == 'timNAU') {
-    met_HF <- read_csv (file = url ("http://harvardforest.fas.harvard.edu/sites/harvardforest.fas.harvard.edu/files/data/p00/hf001/hf001-10-15min-m.csv","rb"),
-                        col_types = cols ())
+    met_HF <- read_csv (file = "/media/tim/dataDisk/PlantGrowth/data/environmentalData/hf001-10-15min-m.csv", col_types = cols ())
   } else if (machine == 'timPersonal') {
     met_HF <- read_csv (file = '../data/respiration/hf001-10-15min-m.csv', col_types = cols ())
   }
@@ -67,13 +65,29 @@ if (!exists ('met_HF')) {
 # read soil moisture data from the Barn Tower
 #--------------------------------------------------------------------------------------
 if (!exists ('soilMoisture_HF')) {
+  soilMoistureBarn <- read_csv (file = '/home/tim/projects/PlantGrowth/data/environmentalData/BarnTowerData.dat',
+                                 col_types = cols (), skip = 4, 
+                                 col_names = c ("TIMESTAMP","RECORD","BattV_Min",
+                                                "Panel_Temp_C_Avg","Air_Temp_C_Avg",
+                                                "Soil_Temp_C_1","Soil_Temp_C_2",
+                                                "Soil_Temp_C_3","Soil_Temp_C_4",
+                                                "Total_Rad_Avg","Diffuse_Rad_Avg",
+                                                "DeltaT_Avg","Diffuse_Rad_Max",
+                                                "DeltaT_Max(1)","DeltaT_Max(2)",
+                                                "Direct_Rad_Std","Total_Rad_Std",
+                                                "Diffuse_Rad_Std","RH","VWC_1","VWC_2",
+                                                "VWC_3","VWC_4","EC_1","EC_2","EC_3",
+                                                "EC_4")) %>% 
+                       select (TIMESTAMP, Soil_Temp_C_1, Soil_Temp_C_2, Soil_Temp_C_3, 
+                               Soil_Temp_C_4, VWC_1, VWC_2, VWC_3, VWC_4, Total_Rad_Avg, 
+                               Diffuse_Rad_Avg)
   soilMoisture_HF <- read_csv (file = '/home/tim/projects/PlantGrowth/data/environmentalData/soilMoisture/soilMoisture.csv',
                                col_types = cols ())
 }
 
 # loop over studies for which to process files
 #----------------------------------------------------------------------------------------
-for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
+for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018')) {
   
   # get list of all dates for a study
   #----------------------------------------------------------------------------------------
@@ -103,7 +117,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
     
     # list all respiration files measured at the same date and time
     #--------------------------------------------------------------------------------------
-    rm (listDir)
+    if (exists ('listDir')) rm (listDir)
     if (machine == 'timNAU') {
       listDir <- list.files (paste0 (dirPath,'raw/',study,'/',dateTime,'/'))
     } else if (machine == 'timPersonal') {
@@ -137,12 +151,12 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
                             lower = ifelse (substr (names (bounds [2:dim (bounds) [2]]), 4, 4) == 'l', TRUE, FALSE))
     }
     
-    # filter out only the relevant files for the study
-    #--------------------------------------------------------------------------------------
-    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
-      listDir <- listDir [substr (listDir, 3, 2 + nchar (study)) == study]
-    }
-    if (length (listDir) == 0) next
+    # # filter out only the relevant files for the study
+    # #--------------------------------------------------------------------------------------
+    # if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
+    #   listDir <- listDir [substr (listDir, 3, 2 + nchar (study)) == study]
+    # }
+    # if (length (listDir) == 0) next
     
     # extract metadata from file name
     #--------------------------------------------------------------------------------------
@@ -284,10 +298,20 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
                            r2Int         = NA,
                            ea.Pa         = NA, 
                            airt.C        = NA, 
+                           soilt1.C      = NA, # soil temperature at 
+                           soilt2.C      = NA, 
+                           soilt3.C      = NA, 
+                           soilt4.C      = NA, 
                            pres.Pa       = NA, 
-                           H2O.ppt.atm   = NA, # Atmospheric water vapour pressure from the Fisher Met Station
-                           H2O.ppt.int   = NA, # Internal water vapour pressure from LiCor-840.
-                           vwc           = NA) # volumetic soil water content form the barn tower
+                           H2O.ppt.atm   = NA, # atmospheric water vapour pressure from the Fisher Met Station
+                           H2O.ppt.int   = NA, # internal water vapour pressure from LiCor-840.
+                           vwcDaily      = NA, # volumetic soil water content form the barn tower
+                           vwc1          = NA,
+                           vwc2          = NA,
+                           vwc3          = NA,
+                           vwc4          = NA,
+                           totalRad      = NA,
+                           diffuseRad    = NA) 
     
     # loop through each measurement in the session 
     #--------------------------------------------------------------------------------------
@@ -357,7 +381,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       
       # truncate data to select only reasonable values
       #----------------------------------------------------------------------------------
-      PLOT1 <- TRUE
+      PLOT1 <- FALSE
       condition <- boundaries [['treeID']] == sessionData [['tree']] [ifile] &
                    boundaries [['chamberID']] == sessionData [['chamber']] [ifile]  
       dat <- selectData (ds = measurement,
@@ -370,19 +394,27 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
                                       'chamber', sessionData [['chamber']] [ifile], 
                                       as_datetime (sessionData [['timestamp']] [ifile], tz = 'EST')))
       
-      # find closest 15 minute interval
+      # find closest 15 and 10 minute interval
       #------------------------------------------------------------------------------------
-      next_interval <- as.POSIXct (x = (round (as.numeric (median (sessionData [['timestamp']] [ifile]))/
-                                                 (15 * 60)) * (15 * 60) + (15 * 60)), format = '%Y-%m-%d %H:%M:%S',
-                                   origin = as.POSIXct ("1970-01-01", format = '%Y-%m-%d', tz = 'UTC'), 
-                                   tz = 'EST')
+      next15_interval <- as.POSIXct (x = (round (as.numeric (median (sessionData [['timestamp']] [ifile]))/
+                                         (15 * 60)) * (15 * 60)), 
+                                     format = '%Y-%m-%d %H:%M:%S',
+                                     origin = as.POSIXct ("1970-01-01", format = '%Y-%m-%d', 
+                                                          tz = 'UTC'), 
+                                     tz = 'EST')
+      next10_interval <- as.POSIXct (x = (round (as.numeric (median (sessionData [['timestamp']] [ifile]))/
+                                          (10 * 60)) * (10 * 60)), 
+                                     format = '%Y-%m-%d %H:%M:%S',
+                                     origin = as.POSIXct ("1970-01-01", format = '%Y-%m-%d', 
+                                                          tz = 'UTC'), 
+                                     tz = 'EST')
       
       # extract pressure in Pa air temperature in deg C and relative humidity in percent 
       # from meteorological data
       #------------------------------------------------------------------------------------
-      pres.Pa <- met_HF [['bar']]  [met_HF [['TIMESTAMP']] == next_interval & !is.na (met_HF [['TIMESTAMP']])] * 100.0 # Pa
-      airt.C  <- met_HF [['airt']] [met_HF [['TIMESTAMP']] == next_interval & !is.na (met_HF [['TIMESTAMP']])]         # deg C
-      rh.per  <- met_HF [['rh']]   [met_HF [['TIMESTAMP']] == next_interval & !is.na (met_HF [['TIMESTAMP']])]         # %
+      pres.Pa <- met_HF [['bar']]  [met_HF [['TIMESTAMP']] == next15_interval & !is.na (met_HF [['TIMESTAMP']])] * 100.0 # Pa
+      airt.C  <- met_HF [['airt']] [met_HF [['TIMESTAMP']] == next15_interval & !is.na (met_HF [['TIMESTAMP']])]         # deg C
+      rh.per  <- met_HF [['rh']]   [met_HF [['TIMESTAMP']] == next15_interval & !is.na (met_HF [['TIMESTAMP']])]         # %
       
       # calculate saturation water vapour pressure (esat) to convert relative humidity
       #------------------------------------------------------------------------------------
@@ -419,34 +451,34 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       
       # calculate chamber flux for entire timeseries from corrected 
       #------------------------------------------------------------------------------------
-      suppressWarnings(resFitRaw <- calcClosedChamberFlux (dat,
-                                                           colConc     = 'CO2.ppm',
-                                                           colTime     = colTime, 
-                                                           colTemp     = 'airt.C',
-                                                           colPressure = 'pres.Pa',
-                                                           volume      = chamberVolume,
-                                                           area        = chamberArea))
+      suppressWarnings (resFitRaw <- calcClosedChamberFlux (dat,
+                                                            colConc     = 'CO2.ppm',
+                                                            colTime     = colTime, 
+                                                            colTemp     = 'airt.C',
+                                                            colPressure = 'pres.Pa',
+                                                            volume      = chamberVolume,
+                                                            area        = chamberArea))
       
       # Calculate chamber flux for entire timeseries from atmospherically corrected concentration 
       #------------------------------------------------------------------------------------
-      suppressWarnings(resFitAtm <- calcClosedChamberFlux (dat,
-                                                           colConc     = 'CO2.dry.atm',
-                                                           colTime     = colTime, 
-                                                           colTemp     = 'airt.C',
-                                                           colPressure = 'pres.Pa',
-                                                           volume      = chamberVolume,
-                                                           area        = chamberArea))
+      suppressWarnings (resFitAtm <- calcClosedChamberFlux (dat,
+                                                            colConc     = 'CO2.dry.atm',
+                                                            colTime     = colTime, 
+                                                            colTemp     = 'airt.C',
+                                                            colPressure = 'pres.Pa',
+                                                            volume      = chamberVolume,
+                                                            area        = chamberArea))
       
       # Calculate chamber flux for entire timeseries from internally corrected concentration
       #------------------------------------------------------------------------------------
       if ('H2OInt' %in% colnames (dat)) {
-        suppressWarnings(resFitInt <- calcClosedChamberFlux (dat,
-                                                             colConc     = 'CO2.dry.int',
-                                                             colTime     = colTime, 
-                                                             colTemp     = 'airt.C',
-                                                             colPressure = 'pres.Pa',
-                                                             volume      = chamberVolume,
-                                                             area        = chamberArea))
+        suppressWarnings (resFitInt <- calcClosedChamberFlux (dat,
+                                                              colConc     = 'CO2.dry.int',
+                                                              colTime     = colTime, 
+                                                              colTemp     = 'airt.C',
+                                                              colPressure = 'pres.Pa',
+                                                              volume      = chamberVolume,
+                                                              area        = chamberArea))
       } else {
         resFitInt <- tibble (flux = NA, sdFlux = NA, AIC = NA, r2 = NA)
       }
@@ -469,8 +501,31 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019')) {
       sessionData [['airt.C']]      [ifile] <- airt.C   # add air temperature [degC] to alldata data.frame
       sessionData [['pres.Pa']]     [ifile] <- pres.Pa   # add atmospheric pressure [Pa] to aalldat data.frame
       sessionData [['H2O.ppt.atm']] [ifile] <- ea.Pa / (pres.Pa - ea.Pa) * 1.0e3   
-      sessionData [['vwc']]         [ifile] <- soilMoisture_HF [['vwc']] [date (soilMoisture_HF [['day']]) == 
-                                                                          date (sessionData [['timestamp']] [ifile])]
+      sessionData [['vwcDaily']]    [ifile] <- 
+        soilMoisture_HF [['vwc']] [date (soilMoisture_HF [['day']]) == date (next10_interval)]
+      if (next10_interval > min (soilMoistureBarn [['TIMESTAMP']])) {
+        sessionData [['vwc1']] [ifile] <- 
+          soilMoistureBarn [['VWC_1']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
+        sessionData [['vwc2']] [ifile] <- 
+          soilMoistureBarn [['VWC_2']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
+        sessionData [['vwc3']] [ifile] <- 
+          soilMoistureBarn [['VWC_3']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
+        sessionData [['vwc4']] [ifile] <- 
+          soilMoistureBarn [['VWC_4']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
+        sessionData [['soilt1']] [ifile] <- 
+          soilMoistureBarn [['Soil_Temp_C_1']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
+        sessionData [['soilt2']] [ifile] <- 
+          soilMoistureBarn [['Soil_Temp_C_2']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
+        sessionData [['soilt3']] [ifile] <- 
+          soilMoistureBarn [['Soil_Temp_C_3']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
+        sessionData [['soilt4']] [ifile] <- 
+          soilMoistureBarn [['Soil_Temp_C_4']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
+        sessionData [['totalRad']] [ifile] <- 
+          soilMoistureBarn [['Total_Rad_Avg']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
+        sessionData [['diffuseRad']] [ifile] <- 
+          soilMoistureBarn [['Diffuse_Rad_Avg']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
+      } 
+      
       # Plot data, if so desired
       PLOT2 <- TRUE
       if (PLOT2) {
