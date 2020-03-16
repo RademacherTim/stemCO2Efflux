@@ -125,7 +125,7 @@ for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
     }
     # sort out meta-data files for now to reduce runtime
     #--------------------------------------------------------------------------------------
-    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10')) {
+    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-15')) {
       listDir <- listDir [substr (listDir, 1, 1) == 'G']      
     }
     
@@ -164,7 +164,7 @@ for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
     # extract metadata from file name
     #--------------------------------------------------------------------------------------
     tmp <- unlist (strsplit (listDir, '_'))
-    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10')) {
+    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-15')) {
       datestr <- tmp [seq (3, length (tmp), 4)]
       timestr <- tmp [seq (4, length (tmp), 4)]
       timestr <- substring (timestr, 1, nchar (timestr) - 4)
@@ -181,7 +181,7 @@ for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
     if (study == 'Exp2019') {
       treeIDs <- as.numeric (substr (listDir, 14, 14)) 
     } else if (study == 'Obs2018' | study == 'Obs2019') {
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10')) {
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-15')) {
         treeIDs <- as.numeric (substr (listDir, 12, 13)) 
       } else {
         treeIDs <- as.numeric (substr (listDir, 2, 3))
@@ -189,7 +189,7 @@ for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
     } else if (study == 'Exp2018') {
       treeIDs <- as.numeric (substr (listDir, 11, 12))
     } else if (study == 'Exp2017') {
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10')) {
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-15')) {
         treeIDs <- as.numeric (substr (listDir, 11, 12))
       } else {
         treeIDs <- as.numeric (substr (listDir, 1, 2))
@@ -203,7 +203,7 @@ for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
     if (study == 'Obs2018' | study == 'Obs2019') {
       chamberIDs <- rep (1, length (treeIDs))
     } else if (study == 'Exp2019' | study == 'Exp2018' | 
-      (study == 'Exp2017' & as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10'))) {
+      (study == 'Exp2017' & as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-15'))) {
       chamberIDs <- as.numeric (substr (listDir, 16, 16))
     }  else if (study == 'Exp2017') {
       chamberIDs <- as.numeric (substr (listDir, 6, 6))
@@ -265,7 +265,7 @@ for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
       treatment <- rep (1, length (treeIDs))
       treatment [treeIDs %in% c (2, 4, 6, 7)] <- 5
     } else if (study == 'Exp2017') {
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10')) {
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-15')) {
         treatment <- as.numeric (substr (listDir, 14, 14))
       } else {
         treatment <- as.numeric (substr (listDir, 4, 4))
@@ -278,7 +278,7 @@ for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
     # determine the species of the trees
     #--------------------------------------------------------------------------------------
     if (substr (study, 1, 3) == 'Obs') {
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10')) {
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-15')) {
         species <- substr (listDir, 11, 11)
       } else {
         species <- substr (listDir, 1, 1)
@@ -294,7 +294,7 @@ for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
     
     # decide on timestamp
     #--------------------------------------------------------------------------------------
-    tmp <- if (unique (timestamp > as.POSIXct ('2018-04-10'))) timestamp else NA
+    tmp <- if (unique (timestamp > as.POSIXct ('2018-04-15'))) timestamp else NA
     
     # Put all info together into a tibble
     #--------------------------------------------------------------------------------------
@@ -353,7 +353,7 @@ for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
       
       # read in the data file
       #------------------------------------------------------------------------------------
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10')) {
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-15')) {
         measurement <- read_csv (file = currentFile, col_types = cols ())
       } else {
         measurement <- read_delim (file = currentFile, delim = ' ', col_types = cols (), 
@@ -390,7 +390,7 @@ for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
       # get the actual timestamp from the file, if the file was produced with LiCor software,
       # and add it to the sessionData
       #------------------------------------------------------------------------------------
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-04-10')) {
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-04-15')) {
         temp <- as.POSIXct (substr (readLines (currentFile, n = 1), 2, 20),
                             format = '%Y-%m-%d at %H:%M', tz = 'EST')
         sessionData [['timestamp']] [ifile] <- with_tz (as_datetime (temp + 
@@ -414,7 +414,7 @@ for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
                          plotB = PLOT1, 
                          colTime = colTime)
       # add title to plot
-      if (PLOT1) title (main = paste ('Stem Respiration:', 'tree', sessionData [['tree']] [ifile], 
+      if (PLOT1) title (main = paste (sessionData [['study']] [ifile],': tree', sessionData [['tree']] [ifile], 
                                       'chamber', sessionData [['chamber']] [ifile], 
                                       as_datetime (sessionData [['timestamp']] [ifile], tz = 'EST')))
       
@@ -562,7 +562,7 @@ for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
               y = dat [['CO2.ppm']],
               xlab = 'time [s]',
               ylab = 'CO2 concentration [ppm]')
-        title (main = paste ('Stem Respiration:', 'tree', sessionData [['tree']] [ifile], 'chamber',
+        title (main = paste (sessionData [['study']] [ifile], ': tree', sessionData [['tree']] [ifile], 'chamber',
                              sessionData [['chamber']] [ifile], 
                              as_datetime (sessionData [['timestamp']] [ifile])))
           
