@@ -86,8 +86,7 @@ if (!exists ('soilMoisture_HF')) {
 
 # loop over studies for which to process files
 #----------------------------------------------------------------------------------------
-#for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018')) {
-for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
+for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018')) {
   
   # get list of all dates for a study
   #----------------------------------------------------------------------------------------
@@ -375,7 +374,11 @@ for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
       # select only columns of interest
       #------------------------------------------------------------------------------------
       if ('H2O' %in% colnames (measurement)) {
-        measurement <- measurement %>% select (colTime, CO2, H2O) %>% rename (H2OInt = H2O) 
+        if (unique (measurement [['H2O']]) != -999) {
+          measurement <- measurement %>% select (colTime, CO2, H2O) %>% rename (H2OInt = H2O) 
+        } else {
+          measurement <- select (measurement, colTime, CO2)
+        }
       } else {
         measurement <- select (measurement, colTime, CO2)
       }    
@@ -408,15 +411,18 @@ for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
       PLOT1 <- TRUE
       condition <- boundaries [['treeID']] == sessionData [['tree']] [ifile] &
                    boundaries [['chamberID']] == sessionData [['chamber']] [ifile]  
+      png (paste0 ('./selectDataGraphs/selectData_',study,'_',dateTime,'_',sessionData [['tree']] [ifile],'_',
+                   sessionData [['chamber']] [ifile],'.png'))
       dat <- selectData (ds = measurement,
                          lowerBound = boundaries [['boundary']] [condition & boundaries [['lower']] == TRUE],
                          upperBound = boundaries [['boundary']] [condition & boundaries [['lower']] == FALSE],
                          plotB = PLOT1, 
                          colTime = colTime)
       # add title to plot
-      if (PLOT1) title (main = paste (sessionData [['study']] [ifile],': tree', sessionData [['tree']] [ifile], 
-                                      'chamber', sessionData [['chamber']] [ifile], 
-                                      as_datetime (sessionData [['timestamp']] [ifile], tz = 'EST')))
+      if (PLOT1) title (main = paste0 (sessionData [['study']] [ifile],': tree', sessionData [['tree']] [ifile], 
+                                       'chamber', sessionData [['chamber']] [ifile], 
+                                       as_datetime (sessionData [['timestamp']] [ifile], tz = 'EST')))
+      dev.off ()
       
       # find closest 15 and 10 minute interval
       #------------------------------------------------------------------------------------
