@@ -20,8 +20,6 @@
 #
 #----------------------------------------------------------------------------------------
 
-# TR - To-do: - Process soil respiration measurements
-
 # load dependencies
 #----------------------------------------------------------------------------------------
 library ('tidyverse')
@@ -53,7 +51,8 @@ if (machine == 'timNAU') {
 #--------------------------------------------------------------------------------------
 if (!exists ('met_HF')) {
   if (machine == 'timNAU') {
-    met_HF <- read_csv (file = "/media/tim/dataDisk/PlantGrowth/data/environmentalData/hf001-10-15min-m.csv", col_types = cols ())
+    met_HF <- read_csv (file = "/media/tim/dataDisk/PlantGrowth/data/environmentalData/hf001-10-15min-m.csv", 
+                        col_types = cols ())
   } else if (machine == 'timPersonal') {
     met_HF <- read_csv (file = '../data/respiration/hf001-10-15min-m.csv', col_types = cols ())
   }
@@ -87,7 +86,8 @@ if (!exists ('soilMoisture_HF')) {
 
 # loop over studies for which to process files
 #----------------------------------------------------------------------------------------
-for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018')) {
+#for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018')) {
+for (study in c ('Obs2018','Obs2019','SoilResp2018')) {
   
   # get list of all dates for a study
   #----------------------------------------------------------------------------------------
@@ -125,15 +125,20 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018
     }
     # sort out meta-data files for now to reduce runtime
     #--------------------------------------------------------------------------------------
-    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
+    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10')) {
       listDir <- listDir [substr (listDir, 1, 1) == 'G']      
     }
     
     # read bounds for each file
     #--------------------------------------------------------------------------------------
     if (machine == 'timNAU'){
-      bounds <- read_csv (file = paste0 (dirPath,'raw/',study,'/StemResp',study,'-bounds.csv'),
-                          col_types = cols ())
+      if (study != 'SoilResp2018') {
+        bounds <- read_csv (file = paste0 (dirPath,'raw/',study,'/StemResp',study,'-bounds.csv'),
+                            col_types = cols ())
+      } else {
+        bounds <- read_csv (file = paste0 (dirPath,'raw/',study,'/SoilRespExp2018-bounds.csv'),
+                            col_types = cols ())
+      }
     } else if (machine == 'timPersonal') {
       bounds <- read_csv (file = paste0 (dirPath,study,'/StemResp',study,'-bounds.csv'),
                           col_types = cols ())
@@ -144,24 +149,22 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018
                             treeID = as.numeric (substr (names (bounds [2:dim (bounds) [2]]), 1, 2)),
                             chamberID = as.numeric (substr (names (bounds [2:dim (bounds) [2]]), 4, 4)),
                             lower = ifelse (substr (names (bounds [2:dim (bounds) [2]]), 5, 5) == 'l', TRUE, FALSE))
-    } else {
+    } else if (substr (study, 1, 3) == 'Obs') {
       boundaries <- tibble (boundary = as.numeric (bounds [2:dim (bounds) [2]]),
                             treeID = as.numeric (substr (names (bounds [2:dim (bounds) [2]]), 2, 3)),
                             chamberID = 1,
                             lower = ifelse (substr (names (bounds [2:dim (bounds) [2]]), 4, 4) == 'l', TRUE, FALSE))
+    } else if (study == 'SoilResp2018') {
+      boundaries <- tibble (boundary = as.numeric (bounds [2:dim (bounds) [2]]),
+                            treeID = as.numeric (substr (names (bounds [2:dim (bounds) [2]]), 1, 2)),
+                            chamberID = as.numeric (substr (names (bounds [2:dim (bounds) [2]]), 4, 4)),
+                            lower = ifelse (substr (names (bounds [2:dim (bounds) [2]]), 5, 5) == 'l', TRUE, FALSE))
     }
-    
-    # # filter out only the relevant files for the study
-    # #--------------------------------------------------------------------------------------
-    # if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
-    #   listDir <- listDir [substr (listDir, 3, 2 + nchar (study)) == study]
-    # }
-    # if (length (listDir) == 0) next
     
     # extract metadata from file name
     #--------------------------------------------------------------------------------------
     tmp <- unlist (strsplit (listDir, '_'))
-    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
+    if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10')) {
       datestr <- tmp [seq (3, length (tmp), 4)]
       timestr <- tmp [seq (4, length (tmp), 4)]
       timestr <- substring (timestr, 1, nchar (timestr) - 4)
@@ -176,17 +179,23 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018
     # Get tree identifiers
     #--------------------------------------------------------------------------------------
     if (study == 'Exp2019') {
-      treeIDs <- as.numeric (substring (listDir, 14, 14)) 
+      treeIDs <- as.numeric (substr (listDir, 14, 14)) 
     } else if (study == 'Obs2018' | study == 'Obs2019') {
-      treeIDs <- as.numeric (substring (listDir, 12, 13)) 
-    } else if (study == 'Exp2018') {
-      treeIDs <- as.numeric (substring (listDir, 11, 12))
-    } else if (study == 'Exp2017') {
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
-        treeIDs <- as.numeric (substring (listDir, 11, 12))
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10')) {
+        treeIDs <- as.numeric (substr (listDir, 12, 13)) 
       } else {
-        treeIDs <- as.numeric (substring (listDir, 1, 2))
+        treeIDs <- as.numeric (substr (listDir, 2, 3))
       }
+    } else if (study == 'Exp2018') {
+      treeIDs <- as.numeric (substr (listDir, 11, 12))
+    } else if (study == 'Exp2017') {
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10')) {
+        treeIDs <- as.numeric (substr (listDir, 11, 12))
+      } else {
+        treeIDs <- as.numeric (substr (listDir, 1, 2))
+      }
+    } else if (study == 'SoilResp2018') {
+      treeIDs <- as.numeric (substr (listDir, 16, 17))
     }
     
     # get chamber identifiers
@@ -194,11 +203,13 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018
     if (study == 'Obs2018' | study == 'Obs2019') {
       chamberIDs <- rep (1, length (treeIDs))
     } else if (study == 'Exp2019' | study == 'Exp2018' | 
-      (study == 'Exp2017' & as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06'))) {
+      (study == 'Exp2017' & as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10'))) {
       chamberIDs <- as.numeric (substr (listDir, 16, 16))
     }  else if (study == 'Exp2017') {
-        chamberIDs <- as.numeric (substr (listDir, 6, 6))
-    } 
+      chamberIDs <- as.numeric (substr (listDir, 6, 6))
+    } else if (study == 'SoilResp2018') {
+      chamberIDs <- as.numeric (substr (listDir, 19, 19))
+    }
     
     # For the Exp2018 the treeIDs changed, here we correct for obsolete treeIDs
     #--------------------------------------------------------------------------------------
@@ -223,20 +234,26 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018
     # geometry of chambers
     #--------------------------------------------------------------------------------------
     if (study == 'Exp2019') {
+      r1 <- 0.0508
       h1 <- 0.0762
     } else if (study == 'Exp2018') {
+      r1 <- 0.0508
       # tree number 5, 8, 9, 14, 15  
       h1 <- treeIDs 
       h1 [h1 %in% c (5, 8, 9, 14, 15)] <- 0.0762 
       h1 [h1 != 0.0762] <- 0.1016
+    } else if (study == 'SoilResp2018') {
+      r1 <- 0.0762
+      h1 <- 0.1016
     } else {
+      r1 <- 0.0508
       h1 <- 0.1016
     }
-    chamberGeometry <- calcChamberGeometryCylinder (radius = 0.0508, # chamber radius
-                                                    height = h1,     # chamber depth
-                                                    taper  = 1.0)    # taper of chamber ranging from 0 for ... to 1 for ...
+    chamberGeometry <- calcChamberGeometryCylinder (radius = r1,  # chamber radius
+                                                    height = h1,  # chamber depth
+                                                    taper  = 1.0) # taper of chamber ranging from 0 for a cone to 1 for a cylinder
   
-    # Add treatment
+    # add treatment
     #--------------------------------------------------------------------------------------
     if (study == 'Exp2018') {
       treatment <- rep (1, length (treeIDs))
@@ -248,21 +265,28 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018
       treatment <- rep (1, length (treeIDs))
       treatment [treeIDs %in% c (2, 4, 6, 7)] <- 5
     } else if (study == 'Exp2017') {
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10')) {
         treatment <- as.numeric (substr (listDir, 14, 14))
       } else {
         treatment <- as.numeric (substr (listDir, 4, 4))
       }
+    } else if (study == 'SoilResp2018') {
+      treatment <- rep (1, length (treeIDs))
+      treatment [treeIDs <= 5] <- 5 
     }
     
-    # Determine the species of the trees
+    # determine the species of the trees
     #--------------------------------------------------------------------------------------
     if (substr (study, 1, 3) == 'Obs') {
-      species <- substr (listDir, 11, 11)
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10')) {
+        species <- substr (listDir, 11, 11)
+      } else {
+        species <- substr (listDir, 1, 1)
+      }
       species [species == 'A'] <- 'Acer rubrum'
       species [species == 'P'] <- 'Pinus strobus'
       species [species == 'Q'] <- 'Quercus rubra'
-    } else if (study == 'Exp2017' | study == 'Exp2018') {
+    } else if (study == 'Exp2017' | study == 'Exp2018' | study == 'SoilResp2018') {
       species <- 'Pinus strobus'
     } else if (study == 'Exp2019') {
       species <- 'Acer rubrum'
@@ -270,7 +294,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018
     
     # decide on timestamp
     #--------------------------------------------------------------------------------------
-    tmp <- if (unique (timestamp > as.POSIXct ('2018-04-06'))) timestamp else NA
+    tmp <- if (unique (timestamp > as.POSIXct ('2018-04-10'))) timestamp else NA
     
     # Put all info together into a tibble
     #--------------------------------------------------------------------------------------
@@ -329,7 +353,7 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018
       
       # read in the data file
       #------------------------------------------------------------------------------------
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-06')) {
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') > as.POSIXct ('2018-04-10')) {
         measurement <- read_csv (file = currentFile, col_types = cols ())
       } else {
         measurement <- read_delim (file = currentFile, delim = ' ', col_types = cols (), 
@@ -366,22 +390,22 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018
       # get the actual timestamp from the file, if the file was produced with LiCor software,
       # and add it to the sessionData
       #------------------------------------------------------------------------------------
-      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-04-06')) {
+      if (as.POSIXct (dateTime, format = '%Y%m%d_%H%M') < as.POSIXct ('2018-04-10')) {
         temp <- as.POSIXct (substr (readLines (currentFile, n = 1), 2, 20),
                             format = '%Y-%m-%d at %H:%M', tz = 'EST')
         sessionData [['timestamp']] [ifile] <- with_tz (as_datetime (temp + 
                                                                      lowerBoundary), 
                                                         tz = 'EST')
-        # sessionData <- sessionData %>% 
-        #                hablar::convert (dtm (timestamp)) %>%
-        #                with_tz (tz = 'EST')
+        sessionData <- sessionData %>%
+                       hablar::convert (dtm (timestamp)) %>%
+                       with_tz (tz = 'EST')
       } else {
         sessionData [['timestamp']] [ifile] <- sessionData [['timestamp']] [ifile] + lowerBoundary
       }
       
       # truncate data to select only reasonable values
       #----------------------------------------------------------------------------------
-      PLOT1 <- FALSE
+      PLOT1 <- TRUE
       condition <- boundaries [['treeID']] == sessionData [['tree']] [ifile] &
                    boundaries [['chamberID']] == sessionData [['chamber']] [ifile]  
       dat <- selectData (ds = measurement,
@@ -501,8 +525,10 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018
       sessionData [['airt.C']]      [ifile] <- airt.C   # add air temperature [degC] to alldata data.frame
       sessionData [['pres.Pa']]     [ifile] <- pres.Pa   # add atmospheric pressure [Pa] to aalldat data.frame
       sessionData [['H2O.ppt.atm']] [ifile] <- ea.Pa / (pres.Pa - ea.Pa) * 1.0e3   
-      sessionData [['vwcDaily']]    [ifile] <- 
-        soilMoisture_HF [['vwc']] [date (soilMoisture_HF [['day']]) == date (next10_interval)]
+      if (date (next10_interval) <= max (date (soilMoisture_HF [['day']]))) {
+        sessionData [['vwcDaily']] [ifile] <- 
+          soilMoisture_HF [['vwc']] [date (soilMoisture_HF [['day']]) == date (next10_interval)]
+      }
       if (next10_interval > min (soilMoistureBarn [['TIMESTAMP']])) {
         sessionData [['vwc1']] [ifile] <- 
           soilMoistureBarn [['VWC_1']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
