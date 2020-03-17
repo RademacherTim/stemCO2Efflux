@@ -87,8 +87,8 @@ if (!exists ('soilMoisture_HF')) {
 # loop over studies for which to process files
 #----------------------------------------------------------------------------------------
 for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018')) {
-  
-  # get list of all dates for a study
+
+    # get list of all dates for a study
   #--------------------------------------------------------------------------------------
   if (machine == 'timNAU') {
     tmp <- list.dirs (paste0 (dirPath,'raw/',study,'/'), full.names = FALSE, 
@@ -548,13 +548,13 @@ for (study in c ('Exp2017','Exp2018','Exp2019','Obs2018','Obs2019','SoilResp2018
           soilMoistureBarn [['VWC_3']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
         sessionData [['vwc4']] [ifile] <- 
           soilMoistureBarn [['VWC_4']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
-        sessionData [['soilt1']] [ifile] <- 
+        sessionData [['soilt1.C']] [ifile] <- 
           soilMoistureBarn [['Soil_Temp_C_1']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
-        sessionData [['soilt2']] [ifile] <- 
+        sessionData [['soilt2.C']] [ifile] <- 
           soilMoistureBarn [['Soil_Temp_C_2']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
-        sessionData [['soilt3']] [ifile] <- 
+        sessionData [['soilt3.C']] [ifile] <- 
           soilMoistureBarn [['Soil_Temp_C_3']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
-        sessionData [['soilt4']] [ifile] <- 
+        sessionData [['soilt4.C']] [ifile] <- 
           soilMoistureBarn [['Soil_Temp_C_4']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
         sessionData [['totalRad']] [ifile] <- 
           soilMoistureBarn [['Total_Rad_Avg']] [soilMoistureBarn [['TIMESTAMP']] == next10_interval]
